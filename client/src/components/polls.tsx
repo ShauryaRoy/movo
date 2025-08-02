@@ -192,7 +192,7 @@ export default function Polls({ eventId }: PollsProps) {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="What games should we play?"
-                  className="bg-dark-card border-dark-border"
+                  className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                 />
               </div>
               
@@ -205,7 +205,7 @@ export default function Polls({ eventId }: PollsProps) {
                         value={option}
                         onChange={(e) => updateOption(index, e.target.value)}
                         placeholder={`Option ${index + 1}`}
-                        className="bg-dark-card border-dark-border flex-1"
+                        className="bg-dark-card border-dark-border flex-1 text-white placeholder:text-gray-400"
                       />
                       {options.length > 2 && (
                         <Button

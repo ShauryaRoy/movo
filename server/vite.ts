@@ -23,51 +23,68 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  console.log('setupVite: Starting Vite server setup...');
+  
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
+  try {
+    console.log('setupVite: Creating Vite server...');
+    const vite = await createViteServer({
+      ...viteConfig,
+      configFile: false,
+      customLogger: {
+        ...viteLogger,
+        error: (msg, options) => {
+          console.error('Vite logger error:', msg);
+          viteLogger.error(msg, options);
+          // Don't exit on error - let it continue
+        },
       },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
+      server: serverOptions,
+      appType: "custom",
+    });
 
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
+    console.log('setupVite: Vite server created successfully');
+    app.use(vite.middlewares);
+    console.log('setupVite: Vite middlewares added');
+    
+    app.use("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      console.log('setupVite: Handling request for:', url);
 
-    try {
-      const clientTemplate = path.resolve(
-        __dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+      try {
+        const clientTemplate = path.resolve(
+          __dirname,
+          "..",
+          "client",
+          "index.html",
+        );
 
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
+        console.log('setupVite: Reading template from:', clientTemplate);
+        // always reload the index.html file from disk incase it changes
+        let template = await fs.promises.readFile(clientTemplate, "utf-8");
+        template = template.replace(
+          `src="/src/main.tsx"`,
+          `src="/src/main.tsx?v=${nanoid()}"`,
+        );
+        const page = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      } catch (e) {
+        console.error('setupVite: Error handling request:', e);
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
+    
+    console.log('setupVite: Vite setup completed successfully');
+  } catch (error) {
+    console.error('setupVite: Failed to setup Vite:', error);
+    throw error;
+  }
 }
 
 export function serveStatic(app: Express) {

@@ -340,7 +340,7 @@ export default function EventDetails() {
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             placeholder="Add a comment..."
-                            className="bg-dark-card border border-dark-border pr-12"
+                            className="bg-dark-card border border-dark-border pr-12 text-white placeholder:text-gray-400"
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();

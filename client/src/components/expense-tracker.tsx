@@ -131,7 +131,7 @@ export default function ExpenseTracker({ eventId }: ExpenseTrackerProps) {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Pizza & Drinks"
-                  className="bg-dark-card border-dark-border"
+                  className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                 />
               </div>
               <div>
@@ -143,7 +143,7 @@ export default function ExpenseTracker({ eventId }: ExpenseTrackerProps) {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="120.00"
-                  className="bg-dark-card border-dark-border"
+                  className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                 />
               </div>
               <div>
@@ -153,7 +153,7 @@ export default function ExpenseTracker({ eventId }: ExpenseTrackerProps) {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="Food & Drinks"
-                  className="bg-dark-card border-dark-border"
+                  className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                 />
               </div>
               <Button 

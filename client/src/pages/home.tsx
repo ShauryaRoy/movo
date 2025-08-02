@@ -187,16 +187,16 @@ export default function Home() {
     <div className="min-h-screen bg-dark-bg">
       <Header />
       
-      <main className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
-        {/* Welcome Section */}
-        <div className="mb-1">
-          <h1 className="text-3xl font-bold ">
-            Welcome back, {(user as any)?.firstName || "Friend"}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Ready to plan your next epic event?
-          </p>
-        </div>
+      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
+      {/* Welcome Section */}
+      <div className="mb-1">
+        <h1 className="text-3xl font-bold ">
+        Welcome back, {(user as any)?.firstName || "Friend"}! 👋
+        </h1>
+        <p className="text-muted-foreground">
+        Ready to plan your next epic event?
+        </p>
+      </div>
 
         {/* Quick Actions */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
@@ -228,7 +228,7 @@ export default function Home() {
                     id="title"
                     {...register("title")}
                     placeholder="Epic Friday Game Night 🎮"
-                    className="bg-dark-card border-dark-border"
+                    className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                   />
                   {errors.title && (
                     <p className="text-sm text-red-400 mt-1">{errors.title.message}</p>
@@ -260,7 +260,7 @@ export default function Home() {
                     id="datetime"
                     type="datetime-local"
                     {...register("datetime")}
-                    className="bg-dark-card border-dark-border"
+                    className="bg-dark-card border-dark-border text-white"
                   />
                   {errors.datetime && (
                     <p className="text-sm text-red-400 mt-1">{errors.datetime.message}</p>
@@ -274,7 +274,7 @@ export default function Home() {
                       id="location"
                       {...register("location")}
                       placeholder="Mike's Gaming Den"
-                      className="bg-dark-card border-dark-border"
+                      className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                     />
                   </div>
                 )}
@@ -285,7 +285,7 @@ export default function Home() {
                     id="description"
                     {...register("description")}
                     placeholder="What's this event about?"
-                    className="bg-dark-card border-dark-border"
+                    className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
                     rows={3}
                   />
                 </div>
@@ -297,7 +297,7 @@ export default function Home() {
                     type="number"
                     {...register("maxGuests", { valueAsNumber: true })}
                     min="1"
-                    className="bg-dark-card border-dark-border"
+                    className="bg-dark-card border-dark-border text-white"
                   />
                 </div>
 

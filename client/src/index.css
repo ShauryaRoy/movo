@@ -23,7 +23,7 @@
   --destructive-foreground: hsl(0, 0%, 98%);
   --ring: hsl(240, 4.9%, 83.9%);
   --radius: 0.75rem;
-  
+
   /* Gaming colors */
   --neon-cyan: hsl(180, 100%, 50%);
   --neon-pink: hsl(300, 100%, 50%);
@@ -44,6 +44,47 @@
     background: var(--dark-bg);
     color: var(--foreground);
   }
+
+  /* Ensure all input elements have visible text */
+  input,
+  textarea,
+  select {
+    color: white !important;
+    background-color: #1f2937 !important; /* Dark gray background */
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af !important;
+  }
+
+  /* Extra specificity for dark theme inputs */
+  .bg-dark-card input,
+  .bg-dark-card textarea,
+  input.bg-dark-card,
+  textarea.bg-dark-card {
+    color: white !important;
+    background-color: #1f2937 !important;
+  }
+
+  /* Force all input text to be white with dark background */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="datetime-local"],
+  textarea {
+    color: white !important;
+    background-color: #1f2937 !important;
+  }
+
+  /* Fix for any input with specific classes */
+  input.bg-gray-800,
+  textarea.bg-gray-800 {
+    background-color: #1f2937 !important;
+    color: white !important;
+  }
 }
 
 @layer components {
@@ -52,49 +93,70 @@
     background-color: hsl(var(--card) / 0.8);
     border-color: hsl(var(--primary) / 0.2);
   }
-  
+
   .neon-border {
     @apply border-2 border-transparent bg-gradient-to-r from-primary to-cyan-400 rounded-xl p-[2px];
   }
-  
+
   .gradient-text {
     @apply bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent;
   }
-  
+
   .gaming-button {
     @apply bg-gradient-to-r from-primary to-blue-600 text-white font-medium px-6 py-2 rounded-lg transition-all duration-200;
-    background: linear-gradient(to right, hsl(var(--primary)), hsl(217, 91%, 60%));
+    background: linear-gradient(
+      to right,
+      hsl(var(--primary)),
+      hsl(217, 91%, 60%)
+    );
   }
-  
+
   .gaming-button:hover {
-    background: linear-gradient(to right, hsl(var(--primary) / 0.9), hsl(217, 91%, 60% / 0.9));
+    background: linear-gradient(
+      to right,
+      hsl(var(--primary) / 0.9),
+      hsl(217, 91%, 60% / 0.9)
+    );
     box-shadow: 0 8px 25px hsl(var(--primary) / 0.25);
   }
-  
+
   .neon-glow {
     box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
   }
-  
+
   .neon-glow:hover {
     box-shadow: 0 0 30px hsl(var(--primary) / 0.5);
   }
-}
 
-@keyframes glow {
-  from { 
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3); 
+  /* Custom dark theme classes */
+  .bg-dark-card {
+    background-color: hsl(240, 10%, 8%) !important;
   }
-  to { 
-    box-shadow: 0 0 30px hsl(var(--primary) / 0.6); 
+
+  .border-dark-border {
+    border-color: hsl(240, 3.7%, 15.9%) !important;
+  }
+
+  .bg-dark-bg {
+    background-color: hsl(240, 10%, 3.9%) !important;
+  }
+}
+@keyframes glow {
+  from {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+  to {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.6);
   }
 }
 
 @keyframes float {
-  0%, 100% { 
-    transform: translateY(0px); 
+  0%,
+  100% {
+    transform: translateY(0px);
   }
-  50% { 
-    transform: translateY(-10px); 
+  50% {
+    transform: translateY(-10px);
   }
 }
 

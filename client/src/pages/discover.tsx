@@ -120,14 +120,14 @@ export default function Discover() {
       <Header />
       <MobileNav />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
+      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
         {/* Header Section */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 gradient-text">
-            Discover Events
+            🎮 DISCOVER EVENTS 🎉 LIVE TEST
           </h1>
           <p className="text-muted-foreground text-lg">
-            Find awesome events happening around you
+            Find awesome events happening around you! 🎉
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export default function Discover() {
               placeholder="Search events..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-dark-card border-dark-border"
+              className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400"
             />
           </div>
 
@@ -164,7 +164,7 @@ export default function Discover() {
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Sort by:</span>
                 <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-                  <SelectTrigger className="w-32 h-8 bg-dark-card border-dark-border">
+                  <SelectTrigger className="w-32 h-8 bg-gray-800 border-gray-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

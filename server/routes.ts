@@ -121,8 +121,12 @@ app.put('/api/events/:id', async (req: any, res) => {
 
 
   app.delete('/api/events/:id', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to delete an event." });
+    }
     try {
       const eventId = parseInt(req.params.id);
+      const userId = req.user.id; // Use actual authenticated user ID
       
       const event = await storage.getEvent(eventId);
       if (!event || event.hostId !== userId) {
@@ -193,9 +197,12 @@ app.put('/api/events/:id', async (req: any, res) => {
 
   // Post routes
   app.post('/api/events/:id/posts', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to create a post." });
+    }
     try {
       const eventId = parseInt(req.params.id);
-      const userId = "test-user"; // Use mock user for now
+      const userId = req.user.id; // Use actual authenticated user ID
       const postData = insertPostSchema.parse({
         ...req.body,
         eventId,
@@ -222,14 +229,20 @@ app.put('/api/events/:id', async (req: any, res) => {
 
   // Poll routes
   app.post('/api/events/:id/polls', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to create a poll." });
+    }
     try {
       const eventId = parseInt(req.params.id);
-      const userId = "test-user"; // Use mock user for now
+      const userId = req.user.id; // Use actual authenticated user ID
+      console.log("[Create Poll] User ID from session:", userId);
+      console.log("[Create Poll] Request body:", req.body);
       const pollData = insertPollSchema.parse({
         ...req.body,
         eventId,
         createdBy: userId,
       });
+      console.log("[Create Poll] Final poll data:", pollData);
       const poll = await storage.createPoll(pollData);
       res.json(poll);
     } catch (error) {
@@ -250,9 +263,12 @@ app.put('/api/events/:id', async (req: any, res) => {
   });
 
   app.post('/api/polls/:id/vote', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to vote in a poll." });
+    }
     try {
       const pollId = parseInt(req.params.id);
-      const userId = "test-user"; // Use mock user for now
+      const userId = req.user.id; // Use actual authenticated user ID
       const { optionIndex } = req.body;
       
       const vote = await storage.voteInPoll(pollId, userId, optionIndex);
@@ -265,9 +281,12 @@ app.put('/api/events/:id', async (req: any, res) => {
 
   // Expense routes
   app.post('/api/events/:id/expenses', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to create an expense." });
+    }
     try {
       const eventId = parseInt(req.params.id);
-      const userId = "test-user"; // Use mock user for now
+      const userId = req.user.id; // Use actual authenticated user ID
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
         eventId,
@@ -292,13 +311,17 @@ app.put('/api/events/:id', async (req: any, res) => {
     }
   });
 
-  // Serve static files from the client directory
-  app.use(express.static(path.join(__dirname, "../client/dist")));
+  // Only serve static files in production mode
+  // In development, Vite handles this
+  if (process.env.NODE_ENV !== "development") {
+    // Serve static files from the client directory
+    app.use(express.static(path.join(__dirname, "../client/dist")));
 
-  // Catch-all route to serve index.html for SPA routing
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../client/dist/index.html"));
-  });
+    // Catch-all route to serve index.html for SPA routing
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "../client/dist/index.html"));
+    });
+  }
 
   const httpServer = createServer(app);
   return httpServer;

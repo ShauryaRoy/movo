@@ -208,6 +208,10 @@ export const insertPollSchema = createInsertSchema(eventPolls).omit({
 export const insertExpenseSchema = createInsertSchema(eventExpenses).omit({
   id: true,
   createdAt: true,
+}).extend({
+  amount: z.number().or(z.string()).transform((val) => {
+    return typeof val === 'number' ? val.toString() : val;
+  }),
 });
 
 // Type exports
