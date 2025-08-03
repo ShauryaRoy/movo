@@ -27,6 +27,8 @@ export function getSession() {
     console.error('Session store error:', error);
   });
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -34,11 +36,12 @@ export function getSession() {
     saveUninitialized: false, // Only save session when we put something in it
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction, // HTTPS only in production
       maxAge: sessionTtl,
-      sameSite: 'lax'
+      sameSite: isProduction ? 'none' : 'lax', // Important for cross-site cookies in production
+      domain: isProduction ? undefined : undefined // Let browser handle domain
     },
-    name: 'connect.sid',
+    name: 'movo.sid',
     rolling: true,
   });
 }
@@ -186,10 +189,11 @@ export function setupAuthRoutes(app: Express) {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL,
-    proxy: true
+    proxy: true // Important for Render deployment
   }, async (accessToken, refreshToken, profile, done) => {
     try {
-      console.log('Google profile:', JSON.stringify(profile, null, 2));
+      console.log('Google auth - Environment:', process.env.NODE_ENV);
+      console.log('Google profile ID:', profile.id);
       
       if (!profile.id) {
         console.error('No profile ID from Google');
@@ -265,6 +269,7 @@ export function setupAuthRoutes(app: Express) {
 
   // Google OAuth endpoints
   app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+  
   app.get("/api/auth/google/callback", (req, res, next) => {
     passport.authenticate("google", (err: any, user: any, info: any) => {
       if (err) {
@@ -281,6 +286,7 @@ export function setupAuthRoutes(app: Express) {
         console.error("User object missing ID:", user);
         return res.redirect("/?error=invalid_user");
       }
+      
       const minimalUser = {
         id: user.id,
         email: user.email || null,
@@ -288,21 +294,32 @@ export function setupAuthRoutes(app: Express) {
         lastName: user.lastName || null,
         googleId: user.googleId || null
       };
-      const plainUser = Object.assign({}, minimalUser);
-      console.log("Attempting to log in minimalUser:", JSON.stringify(plainUser));
-      req.logIn(plainUser, (loginErr: any) => {
+      
+      console.log("Production auth - Attempting to log in user:", minimalUser.id);
+      
+      req.logIn(minimalUser, (loginErr: any) => {
         if (loginErr) {
           console.error("Login error:", loginErr);
           return res.redirect("/?error=login_failed");
         }
+        
         // Verify the session was created
         if (!req.session) {
           console.error("No session after login");
           return res.redirect("/?error=no_session");
         }
-        console.log("Session after login:", req.session);
-        console.log("Successfully logged in user:", plainUser.id);
-        return res.redirect("/");
+        
+        console.log("Production auth - Successfully logged in user:", minimalUser.id);
+        console.log("Session ID:", req.sessionID);
+        
+        // Force session save before redirect
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.redirect("/?error=session_save_failed");
+          }
+          return res.redirect("/?auth=success");
+        });
       });
     })(req, res, next);
   });

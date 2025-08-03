@@ -4,6 +4,10 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupSession, passport } from "./replitAuth";
 
 const app = express();
+
+// Trust proxy for Render (important for sessions and HTTPS)
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(setupSession());
 app.use(passport.initialize());
