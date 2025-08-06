@@ -124,7 +124,7 @@ export default function Discover() {
         {/* Header Section */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 gradient-text">
-            🎮 DISCOVER EVENTS 🎉 LIVE TEST
+            🎮 DISCOVER EVENTS 🎉
           </h1>
           <p className="text-muted-foreground text-lg">
             Find awesome events happening around you! 🎉

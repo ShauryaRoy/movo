@@ -41,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         datetime: new Date(req.body.datetime),
         imageUrl: req.body.imageUrl,
         maxGuests: req.body.maxGuests,
-        isPublic: req.body.isPublic,
+        isPublic: req.body.isPrivate ? false : true, // Convert isPrivate to isPublic
         settings: req.body.settings,
         posterData: req.body.posterData,
       };

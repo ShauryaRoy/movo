@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles } from "lucide-react";
+import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles, Globe, Lock } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import PosterCustomizer from "@/components/poster-customizer";
 
 const createEventSchema = insertEventSchema.omit({ hostId: true }).extend({
   datetime: z.string().min(1, "Date and time are required"),
+  isPrivate: z.string().optional().default("false"),
 });
 
 type CreateEventForm = z.infer<typeof createEventSchema>;
@@ -40,7 +41,7 @@ export default function Home() {
   });
 
   const createEventMutation = useMutation({
-    mutationFn: async (eventData: CreateEventForm & { posterData?: any }) => {
+    mutationFn: async (eventData: any) => {
       const response = await apiRequest("POST", "/api/events", eventData);
       return response.json();
     },
@@ -82,6 +83,7 @@ export default function Home() {
       datetime: "",
       maxGuests: 20,
       isPublic: true,
+      isPrivate: "false",
     },
   });
 
@@ -122,6 +124,7 @@ export default function Home() {
         datetime: new Date(data.datetime).toISOString(),
         maxGuests: data.maxGuests || 20,
         isPublic: data.isPublic ?? true,
+        isPrivate: data.isPrivate === "true",
       };
       console.log("Submitting event data:", eventData);
       createEventMutation.mutate(eventData);
@@ -301,6 +304,46 @@ export default function Home() {
                   />
                 </div>
 
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Event Privacy</Label>
+                  <div className="flex items-center space-x-6">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="public"
+                        value="false"
+                        {...register("isPrivate")}
+                        className="w-4 h-4 text-primary bg-dark-card border-dark-border focus:ring-primary"
+                      />
+                      <label htmlFor="public" className="text-sm text-white flex items-center">
+                        <Globe className="w-4 h-4 mr-2" />
+                        Public
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="private"
+                        value="true"
+                        {...register("isPrivate")}
+                        className="w-4 h-4 text-primary bg-dark-card border-dark-border focus:ring-primary"
+                      />
+                      <label htmlFor="private" className="text-sm text-white flex items-center">
+                        <Lock className="w-4 h-4 mr-2" />
+                        Private
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400">
+                    {watch("isPrivate") === "true"
+                      ? "Only people you invite can see and join this event"
+                      : "Anyone can discover and join this event"
+                    }
+                  </p>
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full gaming-button"
@@ -352,12 +395,22 @@ export default function Home() {
                 <Card key={event.id} className="glass-effect hover:neon-glow transition-all duration-300 h-full">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <Badge
-                        variant={event.eventType === "online" ? "default" : "secondary"}
-                        className={event.eventType === "online" ? "bg-primary" : "bg-pink-500"}
-                      >
-                        {event.eventType === "online" ? "Gaming" : "Party"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={event.eventType === "online" ? "default" : "secondary"}
+                          className={event.eventType === "online" ? "bg-primary" : "bg-pink-500"}
+                        >
+                          {event.eventType === "online" ? "Gaming" : "Party"}
+                        </Badge>
+                        {!event.isPublic && (
+                          <div className="relative group">
+                            <Lock className="w-4 h-4 text-gray-400" />
+                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                              Private
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {event.hostId === (user as any)?.id ? "Host" : "Guest"}
                       </div>
