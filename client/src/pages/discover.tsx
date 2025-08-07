@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, MapPin, Clock, Gamepad2, PartyPopper, Search, Filter, SlidersHorizontal } from "lucide-react";
+import { Calendar, Users, MapPin, Clock, Gamepad2, PartyPopper, Search, Filter, SlidersHorizontal, Share2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
@@ -10,6 +10,7 @@ import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import MobileNav from "@/components/layout/mobile-nav";
 import { type Event } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 type EventWithCounts = Event & {
   rsvpCount: number;
@@ -24,6 +25,7 @@ export default function Discover() {
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [showFilters, setShowFilters] = useState(false);
+  const { toast } = useToast();
 
   const { data: events = [], isLoading } = useQuery<EventWithCounts[]>({
     queryKey: ["/api/events/discover"],
@@ -244,9 +246,35 @@ export default function Discover() {
                           <Users className="h-4 w-4 mr-2" />
                           <span>{event.goingCount || 0}/{event.maxGuests || '∞'} going</span>
                         </div>
-                        <Button size="sm" className="gaming-button-sm">
-                          Join Event
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const shareUrl = `${window.location.origin}/events/${event.id}/share`;
+                              navigator.clipboard.writeText(shareUrl).then(() => {
+                                toast({
+                                  title: "Link copied!",
+                                  description: "Event share link copied to clipboard",
+                                });
+                              }).catch(() => {
+                                toast({
+                                  title: "Failed to copy",
+                                  description: "Please copy the link manually",
+                                  variant: "destructive",
+                                });
+                              });
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <Share2 className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" className="gaming-button-sm">
+                            Join Event
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

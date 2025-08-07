@@ -42,6 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: req.body.imageUrl,
         maxGuests: req.body.maxGuests,
         isPublic: req.body.isPrivate ? false : true, // Convert isPrivate to isPublic
+        themeId: req.body.themeId || 'quantum-dark', // Add theme support
         settings: req.body.settings,
         posterData: req.body.posterData,
       };
@@ -91,6 +92,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(event);
     } catch (error) {
       console.error("Error fetching event:", error);
+      res.status(500).json({ message: "Failed to fetch event" });
+    }
+  });
+
+  // Add share route for events
+  app.get('/api/events/:id/share', async (req: any, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const event = await storage.getEventWithDetails(eventId);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Get RSVP counts
+      const rsvpCounts = await storage.getEventRsvpCounts(eventId);
+      
+      // Get user's RSVP status if authenticated
+      let userRsvpStatus = null;
+      if (req.isAuthenticated?.() && req.user) {
+        const userRsvp = await storage.getUserRsvp(eventId, req.user.id);
+        userRsvpStatus = userRsvp?.status || null;
+      }
+
+      // Get host information
+      const host = await storage.getUser(event.hostId);
+
+      const eventWithDetails = {
+        ...event,
+        ...rsvpCounts,
+        userRsvpStatus,
+        hostName: host ? `${host.firstName || ''} ${host.lastName || ''}`.trim() || host.email : "Unknown Host"
+      };
+
+      res.json(eventWithDetails);
+    } catch (error) {
+      console.error("Error fetching event for sharing:", error);
       res.status(500).json({ message: "Failed to fetch event" });
     }
   });

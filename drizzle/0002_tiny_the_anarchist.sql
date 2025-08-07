@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "theme_id" varchar(50) DEFAULT 'quantum-dark';

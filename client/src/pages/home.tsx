@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles, Globe, Lock } from "lucide-react";
+import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles, Globe, Lock, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,12 @@ import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import MobileNav from "@/components/layout/mobile-nav";
 import PosterCustomizer from "@/components/poster-customizer";
+import ThemeSelector from "@/components/theme-selector";
 
 const createEventSchema = insertEventSchema.omit({ hostId: true }).extend({
   datetime: z.string().min(1, "Date and time are required"),
   isPrivate: z.string().optional().default("false"),
+  themeId: z.string().optional().default("quantum-dark"),
 });
 
 type CreateEventForm = z.infer<typeof createEventSchema>;
@@ -215,7 +217,7 @@ export default function Home() {
                 </CardContent>
               </Card>
             </DialogTrigger>
-            <DialogContent className="glass-effect max-w-md">
+            <DialogContent className="glass-effect max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Event</DialogTitle>
               </DialogHeader>
@@ -344,6 +346,14 @@ export default function Home() {
                   </p>
                 </div>
 
+                {/* Theme Selection */}
+                <div className="space-y-3">
+                  <ThemeSelector
+                    selectedTheme={watch("themeId") || "quantum-dark"}
+                    onThemeSelect={(themeId) => setValue("themeId", themeId)}
+                  />
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full gaming-button"
@@ -452,6 +462,32 @@ export default function Home() {
                         <Sparkles className="h-3 w-3 mr-1" />
                         Poster
                       </Button>
+                      {event.isPublic && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-xs"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const shareUrl = `${window.location.origin}/events/${event.id}/share`;
+                            navigator.clipboard.writeText(shareUrl).then(() => {
+                              toast({
+                                title: "Link copied!",
+                                description: "Event share link copied to clipboard",
+                              });
+                            }).catch(() => {
+                              toast({
+                                title: "Failed to copy",
+                                description: "Please copy the link manually",
+                                variant: "destructive",
+                              });
+                            });
+                          }}
+                        >
+                          <Share2 className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Link href={`/events/${event.id}`} className="flex-1">
                         <Button size="sm" className="gaming-button-sm w-full">
                           View

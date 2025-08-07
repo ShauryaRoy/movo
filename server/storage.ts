@@ -42,6 +42,7 @@ export interface IStorage {
   updateRsvp(eventId: number, userId: string, status: string, plusOneCount?: number): Promise<EventRsvp>;
   getEventRsvps(eventId: number): Promise<EventRsvp[]>;
   getUserRsvp(eventId: number, userId: string): Promise<EventRsvp | undefined>;
+  getEventRsvpCounts(eventId: number): Promise<any>;
   
   // Post operations
   createPost(post: InsertPost): Promise<EventPost>;
@@ -256,6 +257,33 @@ export class DatabaseStorage implements IStorage {
       .from(eventRsvps)
       .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)));
     return rsvp;
+  }
+
+  async getEventRsvpCounts(eventId: number): Promise<any> {
+    const counts = await db
+      .select({
+        status: eventRsvps.status,
+        count: sql<number>`count(*)`
+      })
+      .from(eventRsvps)
+      .where(eq(eventRsvps.eventId, eventId))
+      .groupBy(eventRsvps.status);
+
+    const result = {
+      rsvpCount: 0,
+      goingCount: 0,
+      maybeCount: 0,
+      notGoingCount: 0
+    };
+
+    counts.forEach(({ status, count }) => {
+      result.rsvpCount += count;
+      if (status === 'going') result.goingCount = count;
+      if (status === 'maybe') result.maybeCount = count;
+      if (status === 'not_going') result.notGoingCount = count;
+    });
+
+    return result;
   }
 
   // Post operations

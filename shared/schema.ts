@@ -39,6 +39,7 @@ export const events = pgTable("events", {
   imageUrl: text("image_url"),
   maxGuests: integer("max_guests"),
   isPublic: boolean("is_public").default(true),
+  themeId: varchar("theme_id", { length: 50 }).default("quantum-dark"), // Add theme support
   settings: jsonb("settings"), // For storing various event settings
   posterData: jsonb("poster_data"), // For storing custom poster configuration
   createdAt: timestamp("created_at").defaultNow(),

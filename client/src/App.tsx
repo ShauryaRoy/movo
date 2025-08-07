@@ -9,6 +9,7 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import EventDetails from "@/pages/event-details";
 import Discover from "@/pages/discover";
+import EventShare from "@/pages/event-share";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/" component={isAuthenticated ? Home : Landing} />
       <Route path="/discover" component={Discover} />
       <Route path="/events/:id" component={EventDetails} />
+      <Route path="/events/:id/share" component={EventShare} />
       <Route component={NotFound} />
     </Switch>
   );
