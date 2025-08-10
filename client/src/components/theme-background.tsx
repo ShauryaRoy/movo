@@ -9,8 +9,23 @@ interface ThemeBackgroundProps {
 
 export const ThemeBackground: React.FC<ThemeBackgroundProps> = ({ theme, className = '', children }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationIdRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Clear any existing animation
+    if (animationIdRef.current) {
+      cancelAnimationFrame(animationIdRef.current);
+      animationIdRef.current = null;
+    }
+
+    // Clear canvas
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+
     if (theme.category === 'confetti' && canvasRef.current) {
       try {
         initConfetti(canvasRef.current, theme);
@@ -24,6 +39,14 @@ export const ThemeBackground: React.FC<ThemeBackgroundProps> = ({ theme, classNa
         console.warn('Special effect animation failed:', error);
       }
     }
+
+    // Cleanup function
+    return () => {
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+        animationIdRef.current = null;
+      }
+    };
   }, [theme]);
 
   const getBackgroundStyle = () => {
@@ -155,6 +178,7 @@ export const ThemeBackground: React.FC<ThemeBackgroundProps> = ({ theme, classNa
       {/* Canvas for confetti and special effects */}
       {(theme.category === 'confetti' || theme.category === 'special-effects') && (
         <canvas 
+          key={`${theme.id}-${theme.category}`}
           ref={canvasRef} 
           className="absolute inset-0 w-full h-full pointer-events-none"
         />

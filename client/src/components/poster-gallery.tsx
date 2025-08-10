@@ -18,9 +18,10 @@ import {
 interface PosterGalleryProps {
   event: any;
   onCustomize?: () => void;
+  isPreview?: boolean;
 }
 
-export default function PosterGallery({ event, onCustomize }: PosterGalleryProps) {
+export default function PosterGallery({ event, onCustomize, isPreview = false }: PosterGalleryProps) {
   const [selectedPoster, setSelectedPoster] = useState<any>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
 
@@ -49,57 +50,79 @@ export default function PosterGallery({ event, onCustomize }: PosterGalleryProps
     };
 
     return (
-      <div className={`w-full h-full bg-gradient-to-br ${template.gradient} relative p-6 flex flex-col justify-between text-white`}>
-        {/* Top Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Badge className="bg-white/20 backdrop-blur-sm border-0 text-white">
-              {event?.eventType === "online" ? "Gaming Session" : "Party Event"}
-            </Badge>
-            <div className={template.accentColor}>
-              {getEventIcon()}
+      <div className="w-full h-full relative">
+        {/* Background - Image or Gradient */}
+        {posterData?.selectedImage ? (
+          <>
+            <img 
+              src={posterData.selectedImage.imageUrl} 
+              alt={posterData.selectedImage.name}
+              className="w-full h-full object-cover"
+            />
+            {/* Dark overlay for text readability */}
+            <div className="absolute inset-0 bg-black/40"></div>
+          </>
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${template.gradient}`}></div>
+        )}
+        
+        {/* Content Overlay */}
+        <div className="absolute inset-0 p-6 flex flex-col justify-between text-white">
+          {/* Top Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Badge className="bg-white/20 backdrop-blur-sm border-0 text-white">
+                {event?.eventType === "online" ? "Gaming Session" : "Party Event"}
+              </Badge>
+              <div className="text-white">
+                {getEventIcon()}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {(posterData?.customTitle || event?.title) && (
+                <h1 className="text-xl font-bold text-white leading-tight drop-shadow-lg break-words">
+                  {posterData?.customTitle || event?.title}
+                </h1>
+              )}
+              {posterData?.customSubtitle && (
+                <p className="text-sm text-white/90 drop-shadow-md break-words">
+                  {posterData.customSubtitle}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h1 className={`text-2xl font-bold ${template.textColor} leading-tight`}>
-              {posterData?.customTitle || event?.title}
-            </h1>
-            {posterData?.customSubtitle && (
-              <p className={`text-lg ${template.accentColor}`}>
-                {posterData.customSubtitle}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Section */}
-        {posterData?.showDetails !== false && (
-          <div className="space-y-3 bg-black/30 backdrop-blur-sm rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <Calendar className={`w-4 h-4 ${template.accentColor}`} />
-              <p className={`text-sm ${template.textColor} font-medium`}>
-                {event?.datetime ? formatEventDate(event.datetime) : "Date & Time"}
-              </p>
-            </div>
-            
-            {event?.location && (
-              <div className="flex items-center gap-3">
-                <MapPin className={`w-4 h-4 ${template.accentColor}`} />
-                <p className={`text-sm ${template.textColor}`}>
-                  {event.location}
+          {/* Bottom Section */}
+          {posterData?.showDetails !== false && (
+            <div className="space-y-2 bg-black/50 backdrop-blur-sm rounded-xl p-3">
+              {event?.datetime && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3 h-3 text-white/80 flex-shrink-0" />
+                  <p className="text-xs text-white font-medium truncate">
+                    {formatEventDate(event.datetime)}
+                  </p>
+                </div>
+              )}
+              
+              {event?.location && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3 h-3 text-white/80 flex-shrink-0" />
+                  <p className="text-xs text-white truncate">
+                    {event.location}
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2">
+                <Users className="w-3 h-3 text-white/80 flex-shrink-0" />
+                <p className="text-xs text-white truncate">
+                  {event?.maxGuests ? `Up to ${event.maxGuests} guests` : "Open to all"}
                 </p>
               </div>
-            )}
-            
-            <div className="flex items-center gap-3">
-              <Users className={`w-4 h-4 ${template.accentColor}`} />
-              <p className={`text-sm ${template.textColor}`}>
-                {event?.maxGuests ? `Up to ${event.maxGuests} guests` : "Open to all"}
-              </p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -131,7 +154,15 @@ export default function PosterGallery({ event, onCustomize }: PosterGalleryProps
             Create a stunning custom poster for your event to share with friends!
           </p>
           {onCustomize && (
-            <Button onClick={onCustomize} className="gaming-button">
+            <Button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCustomize();
+              }} 
+              className="gaming-button"
+            >
               Create Poster
             </Button>
           )}
@@ -146,7 +177,15 @@ export default function PosterGallery({ event, onCustomize }: PosterGalleryProps
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-semibold">Event Poster</h3>
           {onCustomize && (
-            <Button variant="outline" onClick={onCustomize}>
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCustomize();
+              }}
+            >
               Edit Poster
             </Button>
           )}

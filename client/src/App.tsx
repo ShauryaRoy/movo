@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import EventDetails from "@/pages/event-details";
+import CreateEvent from "@/pages/create-event";
 import Discover from "@/pages/discover";
 import EventShare from "@/pages/event-share";
 
@@ -26,6 +27,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={isAuthenticated ? Home : Landing} />
+      <Route path="/create-event" component={CreateEvent} />
       <Route path="/discover" component={Discover} />
       <Route path="/events/:id" component={EventDetails} />
       <Route path="/events/:id/share" component={EventShare} />

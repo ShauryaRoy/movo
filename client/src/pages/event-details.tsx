@@ -30,7 +30,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import MobileNav from "@/components/layout/mobile-nav";
-import EventCard from "@/components/event-card";
 import GuestList from "@/components/guest-list";
 import ExpenseTracker from "@/components/expense-tracker";
 import Polls from "@/components/polls";
@@ -220,14 +219,14 @@ export default function EventDetails() {
         {/* Event Header */}
         <div className="relative">
           <div className="h-48 md:h-56">
-            {/* Minimal overlay for text readability */}
+            {/* Header background overlay for text readability */}
             <div className="absolute inset-0 bg-black/10" />
             
             {/* Event Title and Basic Info */}
             <div className="absolute inset-0 flex items-center">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-white">
-                  <h1 className="text-3xl md:text-4xl font-bold mb-2">{event.title}</h1>
+                  <h1 className="text-3xl md:text-4xl font-bold mb-2 drop-shadow-lg">{event.title}</h1>
                   <div className="flex flex-wrap gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
@@ -271,7 +270,17 @@ export default function EventDetails() {
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
-                <EventCard event={event} />
+                {/* Event Poster Section */}
+                {event.posterData && (
+                  <Card className="glass-effect overflow-hidden">
+                    <div className="aspect-[4/5] max-w-md mx-auto">
+                      <PosterGallery 
+                        event={event} 
+                        isPreview={true}
+                      />
+                    </div>
+                  </Card>
+                )}
 
                 {/* RSVP Actions */}
                 {user && (

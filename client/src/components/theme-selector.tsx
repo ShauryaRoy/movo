@@ -7,15 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Palette, 
   Sparkles, 
-  Smile, 
-  Grid3X3, 
   Leaf, 
   PartyPopper, 
   Zap,
   Check
 } from 'lucide-react';
 import { EventTheme, eventThemes, themeCategories, ThemeCategory } from '@shared/themes';
-import ThemeBackground from './theme-background';
+import { ThemeBackground } from './theme-background';
 
 interface ThemeSelectorProps {
   selectedTheme: string;
@@ -26,8 +24,6 @@ interface ThemeSelectorProps {
 const categoryIcons = {
   minimal: Palette,
   confetti: Sparkles,
-  emoji: Smile,
-  pattern: Grid3X3,
   seasonal: Leaf,
   holiday: PartyPopper,
   'special-effects': Zap,
@@ -47,23 +43,21 @@ const ThemePreview: React.FC<{ theme: EventTheme; isSelected: boolean; onSelect:
       }`}
       onClick={onSelect}
     >
-      <div className="relative h-16 overflow-hidden rounded-t-lg">
+      <div className="relative h-24 overflow-hidden rounded-t-lg">
         <ThemeBackground theme={theme} className="h-full w-full">
           <div className="absolute inset-0 flex items-center justify-center">
             {isSelected && (
-              <div className="bg-primary rounded-full p-1">
-                <Check className="h-3 w-3 text-primary-foreground" />
+              <div className="bg-primary rounded-full p-2">
+                <Check className="h-4 w-4 text-primary-foreground" />
               </div>
             )}
           </div>
         </ThemeBackground>
       </div>
-      <CardContent className="p-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium text-xs">{theme.name}</h4>
-            <p className="text-xs text-muted-foreground truncate">{theme.preview}</p>
-          </div>
+      <CardContent className="p-3">
+        <div className="space-y-1">
+          <h4 className="font-medium text-sm">{theme.name}</h4>
+          <p className="text-xs text-muted-foreground">{theme.preview}</p>
         </div>
       </CardContent>
     </Card>
@@ -81,6 +75,11 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
     return eventThemes.filter(theme => theme.category === category);
   };
 
+  // Filter out emoji and pattern categories
+  const filteredCategories = themeCategories.filter(
+    category => category.id !== 'emoji' && category.id !== 'pattern'
+  );
+
   return (
     <div className={`space-y-4 ${className}`}>
       <div className="space-y-2">
@@ -95,8 +94,8 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
         onValueChange={(value) => setActiveCategory(value as ThemeCategory)}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
-          {themeCategories.map((category) => {
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
+          {filteredCategories.map((category) => {
             const Icon = categoryIcons[category.id as keyof typeof categoryIcons];
             return (
               <TabsTrigger 
@@ -111,7 +110,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
           })}
         </TabsList>
 
-        {themeCategories.map((category) => (
+        {filteredCategories.map((category) => (
           <TabsContent key={category.id} value={category.id} className="mt-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -123,8 +122,8 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
                 </p>
               </div>
 
-              <ScrollArea className="h-48">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pr-4">
+              <ScrollArea className="h-64">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
                   {getThemesByCategory(category.id as ThemeCategory).map((theme) => (
                     <ThemePreview
                       key={theme.id}

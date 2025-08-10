@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Sparkles
 } from "lucide-react";
+import PosterGallery from "@/components/poster-gallery";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -172,8 +173,8 @@ export default function EventShare() {
         {/* Event Poster/Header */}
         <div className="relative">
           <div className="h-64 md:h-80">
-            {/* Minimal overlay for text readability */}
-            <div className="absolute inset-0" />
+            {/* Header background overlay for text readability */}
+            <div className="absolute inset-0 bg-black/10" />
             
             {/* Event Type Badge */}
             <div className="absolute top-6 left-6">
@@ -229,11 +230,11 @@ export default function EventShare() {
           </div>
 
           {/* Event Title Overlay */}
-          <div className="absolute bottom-0 left-0 right-0  p-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
               {event.title}
             </h1>
-            <p className="text-white/80 text-lg">
+            <p className="text-white/90 text-lg drop-shadow-lg">
               Hosted by {event.hostName || "Event Host"}
             </p>
           </div>
@@ -246,6 +247,18 @@ export default function EventShare() {
             <div className="grid md:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
+            {/* Event Poster Section */}
+            {event.posterData && (
+              <Card className="glass-effect overflow-hidden">
+                <div className="aspect-[4/5] max-w-md mx-auto">
+                  <PosterGallery 
+                    event={event} 
+                    isPreview={true}
+                  />
+                </div>
+              </Card>
+            )}
+            
             {/* RSVP Section */}
             <Card className="glass-effect" style={{ borderColor: `${theme.accent}40` }}>
               <CardHeader>

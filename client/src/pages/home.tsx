@@ -1,144 +1,23 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles, Globe, Lock, Share2 } from "lucide-react";
+import { Calendar, Users, MapPin, Plus, Gamepad2, PartyPopper, Sparkles, Share2, Lock } from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertEventSchema } from "@shared/schema";
-import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import MobileNav from "@/components/layout/mobile-nav";
 import PosterCustomizer from "@/components/poster-customizer";
-import ThemeSelector from "@/components/theme-selector";
-
-const createEventSchema = insertEventSchema.omit({ hostId: true }).extend({
-  datetime: z.string().min(1, "Date and time are required"),
-  isPrivate: z.string().optional().default("false"),
-  themeId: z.string().optional().default("quantum-dark"),
-});
-
-type CreateEventForm = z.infer<typeof createEventSchema>;
 
 export default function Home() {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPosterCustomizerOpen, setIsPosterCustomizerOpen] = useState(false);
   const [currentEventData, setCurrentEventData] = useState<any>(null);
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["/api/events"],
   });
-
-  const createEventMutation = useMutation({
-    mutationFn: async (eventData: any) => {
-      const response = await apiRequest("POST", "/api/events", eventData);
-      return response.json();
-    },
-    onSuccess: (newEvent) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      toast({
-        title: "Event created!",
-        description: "Your event has been created successfully.",
-      });
-      setIsCreateDialogOpen(false);
-      setCurrentEventData(newEvent);
-      // Auto-open poster customizer for new events
-      setIsPosterCustomizerOpen(true);
-      reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create event. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<CreateEventForm>({
-    resolver: zodResolver(createEventSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      eventType: "offline",
-      location: "",
-      datetime: "",
-      maxGuests: 20,
-      isPublic: true,
-      isPrivate: "false",
-    },
-  });
-
-  const eventType = watch("eventType");
-
-  const onSubmit = (data: CreateEventForm) => {
-    console.log("Form submission started with data:", data);
-    console.log("Form errors:", errors);
-    
-    // Ensure all required fields are present
-    if (!data.eventType) {
-      data.eventType = "offline";
-    }
-    
-    // Validate required fields
-    if (!data.title?.trim()) {
-      toast({
-        title: "Error",
-        description: "Event title is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!data.datetime) {
-      toast({
-        title: "Error", 
-        description: "Date and time are required",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      // Convert datetime string to ISO format for the backend
-      const eventData = {
-        ...data,
-        datetime: new Date(data.datetime).toISOString(),
-        maxGuests: data.maxGuests || 20,
-        isPublic: data.isPublic ?? true,
-        isPrivate: data.isPrivate === "true",
-      };
-      console.log("Submitting event data:", eventData);
-      createEventMutation.mutate(eventData);
-    } catch (error) {
-      console.error("Error preparing event data:", error);
-      toast({
-        title: "Error",
-        description: "Please check your form data and try again",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSavePoster = async (posterData: any) => {
     if (!currentEventData) return;
@@ -205,169 +84,17 @@ export default function Home() {
 
         {/* Quick Actions */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Card className="glass-effect hover:neon-glow cursor-pointer transition-all duration-300">
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 bg-gradient-to-r from-primary to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <Plus className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold">Create Event</h3>
-                  <p className="text-sm text-muted-foreground">Start planning something awesome</p>
-                </CardContent>
-              </Card>
-            </DialogTrigger>
-            <DialogContent className="glass-effect max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New Event</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit((data) => {
-                console.log("handleSubmit called with:", data);
-                onSubmit(data);
-              }, (errors) => {
-                console.log("Form validation errors:", errors);
-              })} className="space-y-4">
-                <div>
-                  <Label htmlFor="title">Event Title</Label>
-                  <Input
-                    id="title"
-                    {...register("title")}
-                    placeholder="Epic Friday Game Night 🎮"
-                    className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
-                  />
-                  {errors.title && (
-                    <p className="text-sm text-red-400 mt-1">{errors.title.message}</p>
-                  )}
+          <Link href="/create-event">
+            <Card className="glass-effect hover:neon-glow cursor-pointer transition-all duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="w-12 h-12 bg-gradient-to-r from-primary to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Plus className="h-6 w-6 text-white" />
                 </div>
-
-                <div>
-                  <Label htmlFor="eventType">Event Type</Label>
-                  <Select 
-                    defaultValue="offline"
-                    onValueChange={(value) => setValue("eventType", value as "offline" | "online")}
-                  >
-                    <SelectTrigger className="bg-dark-card border-dark-border">
-                      <SelectValue placeholder="Select event type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="offline">In-Person Party</SelectItem>
-                      <SelectItem value="online">Gaming Session</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.eventType && (
-                    <p className="text-sm text-red-400 mt-1">{errors.eventType.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="datetime">Date & Time</Label>
-                  <Input
-                    id="datetime"
-                    type="datetime-local"
-                    {...register("datetime")}
-                    className="bg-dark-card border-dark-border text-white"
-                  />
-                  {errors.datetime && (
-                    <p className="text-sm text-red-400 mt-1">{errors.datetime.message}</p>
-                  )}
-                </div>
-
-                {eventType === "offline" && (
-                  <div>
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      {...register("location")}
-                      placeholder="Mike's Gaming Den"
-                      className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    {...register("description")}
-                    placeholder="What's this event about?"
-                    className="bg-dark-card border-dark-border text-white placeholder:text-gray-400"
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="maxGuests">Max Guests</Label>
-                  <Input
-                    id="maxGuests"
-                    type="number"
-                    {...register("maxGuests", { valueAsNumber: true })}
-                    min="1"
-                    className="bg-dark-card border-dark-border text-white"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium">Event Privacy</Label>
-                  <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="public"
-                        value="false"
-                        {...register("isPrivate")}
-                        className="w-4 h-4 text-primary bg-dark-card border-dark-border focus:ring-primary"
-                      />
-                      <label htmlFor="public" className="text-sm text-white flex items-center">
-                        <Globe className="w-4 h-4 mr-2" />
-                        Public
-                      </label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="private"
-                        value="true"
-                        {...register("isPrivate")}
-                        className="w-4 h-4 text-primary bg-dark-card border-dark-border focus:ring-primary"
-                      />
-                      <label htmlFor="private" className="text-sm text-white flex items-center">
-                        <Lock className="w-4 h-4 mr-2" />
-                        Private
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-gray-400">
-                    {watch("isPrivate") === "true"
-                      ? "Only people you invite can see and join this event"
-                      : "Anyone can discover and join this event"
-                    }
-                  </p>
-                </div>
-
-                {/* Theme Selection */}
-                <div className="space-y-3">
-                  <ThemeSelector
-                    selectedTheme={watch("themeId") || "quantum-dark"}
-                    onThemeSelect={(themeId) => setValue("themeId", themeId)}
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full gaming-button"
-                  disabled={createEventMutation.isPending}
-                  onClick={(e) => {
-                    console.log("Create Event button clicked");
-                    // Don't prevent default - let form submission handle it
-                  }}
-                >
-                  {createEventMutation.isPending ? "Creating..." : "Create Event"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+                <h3 className="font-semibold">Create Event</h3>
+                <p className="text-sm text-muted-foreground">Start planning something awesome</p>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card className="glass-effect hover:border-primary/50 cursor-pointer transition-all duration-300">
             <CardContent className="p-6 text-center">
