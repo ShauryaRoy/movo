@@ -2,7 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuthRoutes, isAuthenticated } from "./replitAuth";
-import { insertEventSchema, insertRsvpSchema, insertPostSchema, insertPollSchema, insertExpenseSchema } from "@shared/schema";
+import { insertEventSchema, insertRsvpSchema, insertPostSchema, insertPollSchema, insertExpenseSchema, insertSettlementSchema } from "@shared/schema";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import path from "path";
 import express from "express";
 
@@ -61,6 +63,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health check route
+  app.get('/api/health', async (req, res) => {
+    try {
+      // Simple database connectivity test
+      const result = await db.execute(sql`SELECT 1 as test`);
+      res.json({ 
+        status: 'ok', 
+        database: 'connected',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Health check failed:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   app.get('/api/events/discover', async (req: any, res) => {
     try {
       const events = await storage.getPublicEvents();
@@ -74,7 +97,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/events', async (req: any, res) => {
     try {
       const userId = req.user?.id
+      console.log(`[DEBUG] Fetching events for user: ${userId}`);
       const events = await storage.getUserEvents(userId);
+      console.log(`[DEBUG] Found ${events?.length || 0} events for user ${userId}`);
+      if (events && events.length > 0) {
+        console.log(`[DEBUG] Event IDs:`, events.map((e: any) => e.id));
+      }
       res.json(events);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -85,10 +113,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/events/:id', async (req, res) => {
     try {
       const eventId = parseInt(req.params.id);
+      console.log(`[DEBUG] Fetching event with ID: ${eventId}`);
       const event = await storage.getEventWithDetails(eventId);
+      console.log(`[DEBUG] Event found:`, event ? 'YES' : 'NO');
       if (!event) {
+        console.log(`[DEBUG] Event ${eventId} not found in database`);
         return res.status(404).json({ message: "Event not found" });
       }
+      console.log(`[DEBUG] Returning event data for ID ${eventId}:`, {
+        title: event.title,
+        id: event.id,
+        hostId: event.hostId
+      });
       res.json(event);
     } catch (error) {
       console.error("Error fetching event:", error);
@@ -325,11 +361,17 @@ app.put('/api/events/:id', async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
       const userId = req.user.id; // Use actual authenticated user ID
+      
+      console.log("[Create Expense] Raw request body:", JSON.stringify(req.body, null, 2));
+      
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
         eventId,
         paidBy: userId,
       });
+      
+      console.log("[Create Expense] Parsed expense data:", JSON.stringify(expenseData, null, 2));
+      
       const expense = await storage.createExpense(expenseData);
       res.json(expense);
     } catch (error) {
@@ -346,6 +388,36 @@ app.put('/api/events/:id', async (req: any, res) => {
     } catch (error) {
       console.error("Error fetching expenses:", error);
       res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  // Settlement routes
+  app.post('/api/events/:eventId/settlements', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "You must be logged in to record a settlement." });
+    }
+    try {
+      const eventId = parseInt(req.params.eventId);
+      const settlementData = insertSettlementSchema.parse({
+        ...req.body,
+        eventId,
+      });
+      const settlement = await storage.createSettlement(settlementData);
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error creating settlement:", error);
+      res.status(500).json({ message: "Failed to record settlement" });
+    }
+  });
+
+  app.get('/api/events/:eventId/settlements', async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.eventId);
+      const settlements = await storage.getEventSettlements(eventId);
+      res.json(settlements);
+    } catch (error) {
+      console.error("Error fetching settlements:", error);
+      res.status(500).json({ message: "Failed to fetch settlements" });
     }
   });
 

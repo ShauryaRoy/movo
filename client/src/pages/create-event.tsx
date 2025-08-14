@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +41,7 @@ const createEventSchema = z.object({
   maxGuests: z.number().min(1, "Must allow at least 1 guest"),
   isPrivate: z.boolean(),
   themeId: z.string().min(1, "Please select a theme"),
+  posterData: z.any().optional(), // We'll validate this separately
 });
 
 type CreateEventFormData = z.infer<typeof createEventSchema>;
@@ -50,10 +51,10 @@ export default function CreateEventPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [currentStep, setCurrentStep] = useState<'details' | 'design'>('details');
   const [selectedTheme, setSelectedTheme] = useState('quantum-dark');
   const [posterData, setPosterData] = useState<any>(null);
   const [isPosterCustomizerOpen, setIsPosterCustomizerOpen] = useState(false);
+  const [posterError, setPosterError] = useState<string>("");
   
   const theme = getThemeById(selectedTheme);
 
@@ -63,7 +64,6 @@ export default function CreateEventPage() {
     formState: { errors },
     watch,
     setValue,
-    trigger
   } = useForm<CreateEventFormData>({
     resolver: zodResolver(createEventSchema),
     defaultValues: {
@@ -75,6 +75,19 @@ export default function CreateEventPage() {
   });
 
   const eventType = watch("eventType");
+  
+  // Watch form values for live poster preview
+  const formValues = watch();
+
+  // Update poster data when title changes
+  useEffect(() => {
+    if (posterData && formValues.title) {
+      setPosterData((prev: any) => ({
+        ...prev,
+        customTitle: formValues.title
+      }));
+    }
+  }, [formValues.title, posterData]);
 
   const createEventMutation = useMutation({
     mutationFn: async (data: CreateEventFormData & { posterData?: any }) => {
@@ -112,20 +125,25 @@ export default function CreateEventPage() {
   });
 
   const onSubmit = async (data: CreateEventFormData) => {
-    console.log("Form submitted:", data);
-    createEventMutation.mutate({ ...data, posterData: posterData || undefined });
-  };
-
-  const handleNextStep = async () => {
-    const isValid = await trigger(['title', 'eventType', 'datetime', 'maxGuests']);
-    if (isValid) {
-      setCurrentStep('design');
+    // Validate that a poster is selected (either default from PosterGallery or custom)
+    if (!posterData) {
+      setPosterError("Please select or customize a poster for your event");
+      // Scroll to the poster section
+      document.getElementById('poster-section')?.scrollIntoView({ behavior: 'smooth' });
+      return;
     }
+    
+    // Clear any poster errors
+    setPosterError("");
+    
+    console.log("Form submitted:", data);
+    createEventMutation.mutate({ ...data, posterData: posterData });
   };
 
   const handleSavePoster = (newPosterData: any) => {
     console.log("Saving poster data:", newPosterData);
     setPosterData(newPosterData);
+    setPosterError(""); // Clear any poster errors
     setIsPosterCustomizerOpen(false);
     toast({
       title: "Poster saved!",
@@ -145,50 +163,32 @@ export default function CreateEventPage() {
       <div className="relative z-10 min-h-screen flex flex-col">
         <Header />
         
-        <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8">
-          {/* Content background for readability */}
-          <div className="w-full max-w-6xl bg-white/10 dark:bg-gray-900/10 backdrop-blur-md rounded-lg shadow-lg border border-white/10">
-            {/* Header */}
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Link href="/">
-                    <Button variant="ghost" size="sm" className="text-white/80 hover:text-white">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
-                  </Link>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">Create New Event</h1>
-                    <p className="text-white/70">Design your perfect event experience</p>
-                  </div>
-                </div>
-                
-                {/* Step Indicator */}
-                <div className="flex items-center gap-2">
-                  <div className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                    currentStep === 'details' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-white/20 text-white/70'
-                  }`}>
-                    1. Details
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                    currentStep === 'design' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-white/20 text-white/70'
-                  }`}>
-                    2. Design
-                  </div>
-                </div>
-              </div>
-            </div>
-
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+          {/* Split Layout Container */}
+          <div className="max-w-7xl mx-auto">
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="p-6">
-                {currentStep === 'details' && (
-                  <div className="max-w-2xl space-y-6">
+              <div className="grid lg:grid-cols-2 gap-8 min-h-[80vh]">
+                
+                {/* LEFT SIDE - Event Details Form */}
+                <Card className="bg-white/10 dark:bg-gray-900/10 backdrop-blur-md border border-white/10 shadow-lg">
+                  <CardHeader className="border-b border-white/10">
+                    <div className="flex items-center gap-4">
+                      <Link href="/">
+                        <Button variant="ghost" size="sm" className="text-white/80 hover:text-white">
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Back
+                        </Button>
+                      </Link>
+                      <div>
+                        <CardTitle className="text-2xl text-white">Create New Event</CardTitle>
+                        <p className="text-white/70 text-sm">Fill out the details for your event</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
                     <div className="space-y-4">
+                      {/* Event Title */}
                       <div>
                         <Label htmlFor="title" className="text-white">Event Title</Label>
                         <Input
@@ -196,12 +196,17 @@ export default function CreateEventPage() {
                           {...register("title")}
                           placeholder="Epic Friday Game Night 🎮"
                           className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20"
+                          onChange={(e) => {
+                            register("title").onChange(e);
+                            // This will trigger re-render of poster preview
+                          }}
                         />
                         {errors.title && (
                           <p className="text-sm text-red-300 mt-1">{errors.title.message}</p>
                         )}
                       </div>
 
+                      {/* Event Type */}
                       <div>
                         <Label htmlFor="eventType" className="text-white">Event Type</Label>
                         <Select 
@@ -221,6 +226,7 @@ export default function CreateEventPage() {
                         )}
                       </div>
 
+                      {/* Date & Time and Max Guests */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="datetime" className="text-white">Date & Time</Label>
@@ -250,6 +256,7 @@ export default function CreateEventPage() {
                         </div>
                       </div>
 
+                      {/* Location (for offline events) */}
                       {eventType === "offline" && (
                         <div>
                           <Label htmlFor="location" className="text-white">Location</Label>
@@ -262,17 +269,19 @@ export default function CreateEventPage() {
                         </div>
                       )}
 
+                      {/* Description */}
                       <div>
                         <Label htmlFor="description" className="text-white">Description</Label>
                         <Textarea
                           id="description"
                           {...register("description")}
-                          placeholder="What's this event about?"
+                          placeholder="What's this event about? What should guests expect?"
                           className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20"
-                          rows={3}
+                          rows={4}
                         />
                       </div>
 
+                      {/* Privacy Setting */}
                       <div className="space-y-3">
                         <Label className="text-white">Event Privacy</Label>
                         <div className="flex items-center space-x-6">
@@ -326,127 +335,148 @@ export default function CreateEventPage() {
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-6">
-                      <Button
-                        type="button"
-                        onClick={handleNextStep}
-                        className="gaming-button"
-                      >
-                        Next: Design & Theme
-                        <Palette className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {currentStep === 'design' && (
-                  <div className="space-y-8">
-                    <div className="grid lg:grid-cols-2 gap-8">
-                      {/* Theme Selection */}
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-xl font-semibold text-white">Choose Theme</h2>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setCurrentStep('details')}
-                            className="text-white/70 hover:text-white"
-                          >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Details
-                          </Button>
-                        </div>
-                        
-                        <Card className="bg-white/10 border-white/20">
-                          <CardContent className="p-4">
-                            <ThemeSelector
-                              selectedTheme={selectedTheme}
-                              onThemeSelect={(themeId) => {
-                                setSelectedTheme(themeId);
-                                setValue("themeId", themeId);
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Poster Selection */}
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-xl font-semibold text-white">Event Poster</h2>
-                          <Button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setIsPosterCustomizerOpen(true);
-                            }}
-                            variant="outline"
-                            className="border-white/20 text-white hover:bg-white/10"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Custom Poster
-                          </Button>
-                        </div>
-                        
-                        <Card className="bg-white/10 border-white/20">
-                          <CardContent className="p-4">
-                            <PosterGallery 
-                              event={{
-                                id: 0,
-                                title: watch("title") || "",
-                                datetime: watch("datetime") || "",
-                                location: watch("location") || "",
-                                description: watch("description") || "",
-                                themeId: selectedTheme,
-                                posterData: posterData
-                              }}
-                              onCustomize={() => setIsPosterCustomizerOpen(true)}
-                              isPreview={true}
-                            />
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-between pt-6">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setCurrentStep('details')}
-                        className="text-white/70 hover:text-white"
-                      >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Details
-                      </Button>
-                      
+                    {/* Submit Button */}
+                    <div className="pt-6 border-t border-white/10">
                       <Button
                         type="submit"
                         disabled={createEventMutation.isPending}
-                        className="gaming-button"
+                        className="gaming-button w-full"
+                        size="lg"
                       >
                         <Save className="mr-2 h-4 w-4" />
-                        {createEventMutation.isPending ? "Creating..." : "Create Event"}
+                        {createEventMutation.isPending ? "Creating Event..." : "Create Event"}
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* RIGHT SIDE - Poster Preview & Theme Selection */}
+                <div className="space-y-6">
+                  {/* Poster Preview - No Card Wrapper */}
+                  <div id="poster-section" className="space-y-4">
+                    {/* Poster Header */}
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-semibold text-white flex items-center">
+                        <Image className="mr-2 h-5 w-5" />
+                        Event Poster Preview
+                        <span className="text-red-400 ml-1">*</span>
+                      </h3>
+                      <div className="flex gap-2">
+                        {!posterData && (
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              const defaultPoster = {
+                                template: {
+                                  gradient: "from-blue-600 to-purple-600",
+                                  textColor: "text-white",
+                                  accentColor: "text-blue-200"
+                                },
+                                customTitle: formValues.title || "Your Event Title",
+                                customSubtitle: "",
+                                showDetails: true
+                              };
+                              setPosterData(defaultPoster);
+                              setPosterError("");
+                              toast({
+                                title: "Default poster selected!",
+                                description: "You can customize it further if needed.",
+                              });
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="border-green-400/50 text-green-400 hover:bg-green-400/10"
+                          >
+                            Use Default
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsPosterCustomizerOpen(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="border-white/20 text-white hover:bg-white/10"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          {posterData ? "Edit Poster" : "Create Custom"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Error Message */}
+                    {posterError && (
+                      <div className="mt-2">
+                        <p className="text-sm text-red-300">{posterError}</p>
+                      </div>
+                    )}
+
+                    {/* Poster Display - Direct without Card */}
+                    <div className={`transition-all ${posterError ? 'ring-2 ring-red-400/50 rounded-lg' : ''}`}>
+                      <PosterGallery 
+                        event={{
+                          id: 0,
+                          title: formValues.title || "Your Event Title",
+                          datetime: formValues.datetime || new Date().toISOString(),
+                          location: formValues.location || (eventType === "offline" ? "Your Location" : ""),
+                          description: formValues.description || "",
+                          themeId: selectedTheme,
+                          posterData: posterData
+                        }}
+                        onCustomize={() => setIsPosterCustomizerOpen(true)}
+                        isPreview={true}
+                      />
+                    </div>
+                      
+                    {/* Status Message */}
+                    <div className="text-center">
+                      <p className="text-sm text-white/60">
+                        {posterData ? (
+                          <span className="text-green-400">✓ Poster selected</span>
+                        ) : (
+                          <span>Select a poster template or create a custom one <span className="text-red-400">*</span></span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                )}
+
+                  {/* Theme Selector */}
+                  <Card className="bg-white/10 dark:bg-gray-900/10 backdrop-blur-md border border-white/10 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-xl text-white flex items-center">
+                        <Palette className="mr-2 h-5 w-5" />
+                        Choose Background Theme
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <ThemeSelector
+                        selectedTheme={selectedTheme}
+                        onThemeSelect={(themeId) => {
+                          setSelectedTheme(themeId);
+                          setValue("themeId", themeId);
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </form>
           </div>
         </main>
 
-        {/* Poster Customizer */}
+        {/* Poster Customizer Modal */}
         <PosterCustomizer 
           open={isPosterCustomizerOpen}
           onOpenChange={setIsPosterCustomizerOpen}
           eventData={{
             id: 0,
-            title: watch("title") || "",
-            datetime: watch("datetime") || "",
-            location: watch("location") || "",
-            description: watch("description") || "",
+            title: formValues.title || "Your Event Title",
+            datetime: formValues.datetime || new Date().toISOString(),
+            location: formValues.location || (eventType === "offline" ? "Your Location" : ""),
+            description: formValues.description || "",
             themeId: selectedTheme,
             posterData: posterData
           }}

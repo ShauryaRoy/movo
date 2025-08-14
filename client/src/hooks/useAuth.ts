@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import type { User } from "@shared/schema";
 
-export async function fetchCurrentUser() {
+export async function fetchCurrentUser(): Promise<User | null> {
   try {
     const res = await fetch("/api/auth/user", { credentials: "include" });
     if (!res.ok) return null;
@@ -12,7 +13,7 @@ export async function fetchCurrentUser() {
 }
 
 export function useAuth() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

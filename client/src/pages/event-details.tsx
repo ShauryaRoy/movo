@@ -37,6 +37,7 @@ import PosterGallery from "@/components/poster-gallery";
 import PosterCustomizer from "@/components/poster-customizer";
 import { ThemeBackground } from "@/components/theme-background";
 import { getThemeById } from "@shared/themes";
+import type { Event } from "@shared/schema";
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -47,9 +48,38 @@ export default function EventDetails() {
   const [newComment, setNewComment] = useState("");
   const [isPosterCustomizerOpen, setIsPosterCustomizerOpen] = useState(false);
 
-  const { data: event, isLoading } = useQuery({
+  const { data: event, isLoading, error } = useQuery<any>({
     queryKey: [`/api/events/${id}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/events/${id}`, { credentials: "include" });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Event not found");
+        }
+        if (response.status >= 500) {
+          throw new Error("Database connection error - please try again later");
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
     enabled: !!id,
+    retry: (failureCount, error) => {
+      // Don't retry on 404s
+      if (error?.message === "Event not found") return false;
+      // Retry database errors up to 3 times
+      return failureCount < 3;
+    },
+    retryDelay: 1000,
+  });
+
+  // Add debugging
+  console.log('Event Details Debug:', {
+    id,
+    event,
+    isLoading,
+    error: error?.message,
+    queryKey: `/api/events/${id}`
   });
 
   const rsvpMutation = useMutation({
@@ -180,6 +210,35 @@ export default function EventDetails() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen ">
+        <Header />
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">
+            {error.message === "Event not found" ? "Event not found" : "Unable to load event"}
+          </h1>
+          <p className="text-muted-foreground mb-8">
+            {error.message === "Event not found" 
+              ? "The event you're looking for doesn't exist or has been deleted."
+              : error.message.includes("Database connection") 
+                ? "We're having trouble connecting to our database. Please try again in a few moments."
+                : "Something went wrong while loading the event. Please try again."
+            }
+          </p>
+          <div className="space-x-4">
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Try Again
+            </Button>
+            <Link to="/events">
+              <Button>Back to Home</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!event) {
     return (
       <div className="min-h-screen ">
@@ -255,200 +314,196 @@ export default function EventDetails() {
         </div>
         
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
-          {/* Content background for readability with better transparency */}
-          <div className="bg-white/20 dark:bg-gray-900/20 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-6">
-            {/* Back Button */}
-            <div className="mb-6">
-              <Link href="/">
-                <Button variant="ghost" className="text-primary hover:text-primary/80">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Events
-                </Button>
-              </Link>
-            </div>
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link href="/">
+              <Button variant="ghost" className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Events
+              </Button>
+            </Link>
+          </div>
 
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Event Poster Section */}
-                {event.posterData && (
-                  <Card className="glass-effect overflow-hidden">
-                    <div className="aspect-[4/5] max-w-md mx-auto">
-                      <PosterGallery 
-                        event={event} 
-                        isPreview={true}
-                      />
-                    </div>
-                  </Card>
-                )}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Event Poster Section - Larger Display */}
+              {event.posterData && (
+                <div className="flex justify-center">
+                  <div className="w-full max-w-lg">
+                    <PosterGallery 
+                      event={event} 
+                      isPreview={true}
+                    />
+                  </div>
+                </div>
+              )}
 
-                {/* RSVP Actions */}
-                {user && (
-                  <Card className="glass-effect">
-                    <CardContent className="p-6">
-                      <div className="flex flex-wrap gap-3">
-                        <Button
-                          onClick={() => handleRsvp("going")}
-                          disabled={rsvpMutation.isPending}
-                          className={`${
-                            userRsvpStatus === "going"
-                              ? "bg-green-600 hover:bg-green-700"
-                              : "bg-dark-card border border-dark-border hover:border-green-500"
-                          } transition-colors`}
-                        >
-                          <Check className="mr-2 h-4 w-4" />
-                          Going
-                        </Button>
-                        <Button
-                          onClick={() => handleRsvp("maybe")}
-                          disabled={rsvpMutation.isPending}
-                          className={`${
-                            userRsvpStatus === "maybe"
-                              ? "bg-yellow-600 hover:bg-yellow-700"
-                              : "bg-dark-card border border-dark-border hover:border-yellow-500"
-                          } transition-colors`}
-                        >
-                          <HelpCircle className="mr-2 h-4 w-4" />
-                          Maybe
-                        </Button>
-                        <Button
-                          onClick={() => handleRsvp("not_going")}
-                          disabled={rsvpMutation.isPending}
-                          className={`${
-                            userRsvpStatus === "not_going"
-                              ? "bg-red-600 hover:bg-red-700"
-                              : "bg-dark-card border border-dark-border hover:border-red-500"
-                          } transition-colors`}
-                        >
-                          <X className="mr-2 h-4 w-4" />
-                          Can't Go
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="bg-dark-card border border-dark-border hover:border-primary"
-                        >
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Bring Guest
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+              {/* RSVP Actions - Full Width */}
+              {user && (
+                <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Are you going?</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Button
+                      onClick={() => handleRsvp("going")}
+                      disabled={rsvpMutation.isPending}
+                      className={`${
+                        userRsvpStatus === "going"
+                          ? "bg-green-600 hover:bg-green-700 text-white"
+                          : "bg-white/10 border border-white/20 text-white hover:bg-green-600/20 hover:border-green-500"
+                      } transition-all duration-200`}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Going
+                    </Button>
+                    <Button
+                      onClick={() => handleRsvp("maybe")}
+                      disabled={rsvpMutation.isPending}
+                      className={`${
+                        userRsvpStatus === "maybe"
+                          ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                          : "bg-white/10 border border-white/20 text-white hover:bg-yellow-600/20 hover:border-yellow-500"
+                      } transition-all duration-200`}
+                    >
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      Maybe
+                    </Button>
+                    <Button
+                      onClick={() => handleRsvp("not_going")}
+                      disabled={rsvpMutation.isPending}
+                      className={`${
+                        userRsvpStatus === "not_going"
+                          ? "bg-red-600 hover:bg-red-700 text-white"
+                          : "bg-white/10 border border-white/20 text-white hover:bg-red-600/20 hover:border-red-500"
+                      } transition-all duration-200`}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Can't Go
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-white/40 transition-all duration-200"
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Bring Guest
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-                {/* Event Tabs */}
-                <Card className="glass-effect">
-                  <CardContent className="p-6">
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                      <TabsList className="grid w-full grid-cols-5 bg-dark-card">
-                        <TabsTrigger value="updates">Updates</TabsTrigger>
-                        <TabsTrigger value="poster">Poster</TabsTrigger>
-                        <TabsTrigger value="polls">Polls</TabsTrigger>
-                        <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                        <TabsTrigger value="photos">Photos</TabsTrigger>
-                      </TabsList>
+              {/* Event Tabs - Improved Styling */}
+              <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20">
+                    <TabsTrigger value="updates" className="text-white data-[state=active]:bg-white/20 data-[state=active]:text-white">Updates</TabsTrigger>
+                    <TabsTrigger value="poster" className="text-white data-[state=active]:bg-white/20 data-[state=active]:text-white">Poster</TabsTrigger>
+                    <TabsTrigger value="polls" className="text-white data-[state=active]:bg-white/20 data-[state=active]:text-white">Polls</TabsTrigger>
+                    <TabsTrigger value="expenses" className="text-white data-[state=active]:bg-white/20 data-[state=active]:text-white">Expenses</TabsTrigger>
+                    <TabsTrigger value="photos" className="text-white data-[state=active]:bg-white/20 data-[state=active]:text-white">Photos</TabsTrigger>
+                  </TabsList>
 
-                      <TabsContent value="updates" className="mt-6 space-y-4">
-                        {event.posts && event.posts.length > 0 ? (
-                          event.posts.map((post: any) => (
-                            <div key={post.id} className="flex items-start space-x-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={post.author?.profileImageUrl} />
-                                <AvatarFallback>
-                                  {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="bg-dark-card rounded-lg p-4">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <p className="font-semibold text-sm">
-                                      {post.author?.firstName} {post.author?.lastName}
-                                      {post.authorId === event.hostId && (
-                                        <Badge variant="outline" className="ml-2 text-xs">Host</Badge>
-                                      )}
-                                    </p>
-                                  </div>
-                                  <p className="text-sm">{post.content}</p>
-                                  <div className="flex items-center space-x-4 mt-3 text-xs text-muted-foreground">
-                                    <span>{new Date(post.createdAt).toLocaleString()}</span>
-                                    <button className="hover:text-primary transition-colors">
-                                      <Heart className="h-3 w-3 mr-1 inline" />
-                                      Like
-                                    </button>
-                                    <button className="hover:text-primary transition-colors">Reply</button>
-                                  </div>
-                                </div>
+                  <TabsContent value="updates" className="mt-6 space-y-4">
+                    {event.posts && event.posts.length > 0 ? (
+                      event.posts.map((post: any) => (
+                        <div key={post.id} className="flex items-start space-x-3">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={post.author?.profileImageUrl} />
+                            <AvatarFallback className="bg-white/20 text-white">
+                              {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-4">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <p className="font-semibold text-sm text-white">
+                                  {post.author?.firstName} {post.author?.lastName}
+                                  {post.authorId === event.hostId && (
+                                    <Badge variant="outline" className="ml-2 text-xs border-white/30 text-white">Host</Badge>
+                                  )}
+                                </p>
+                              </div>
+                              <p className="text-sm text-white">{post.content}</p>
+                              <div className="flex items-center space-x-4 mt-3 text-xs text-white/60">
+                                <span>{new Date(post.createdAt).toLocaleString()}</span>
+                                <button className="hover:text-white transition-colors">
+                                  <Heart className="h-3 w-3 mr-1 inline" />
+                                  Like
+                                </button>
+                                <button className="hover:text-white transition-colors">Reply</button>
                               </div>
                             </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <p>No updates yet. Be the first to post!</p>
                           </div>
-                        )}
-
-                        {/* Comment Input */}
-                        {user && (
-                          <div className="flex items-center space-x-3 mt-6">
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage src={user.profileImageUrl} />
-                              <AvatarFallback>
-                                {user.firstName?.[0]}{user.lastName?.[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 relative">
-                              <Input
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                placeholder="Add a comment..."
-                                className="bg-dark-card border border-dark-border pr-12 text-white placeholder:text-gray-400"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handlePostComment();
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={handlePostComment}
-                                disabled={!newComment.trim() || postMutation.isPending}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-                              >
-                                <Send className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="poster" className="mt-6">
-                        <PosterGallery 
-                          event={event} 
-                          onCustomize={() => setIsPosterCustomizerOpen(true)}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="polls" className="mt-6">
-                        <Polls eventId={parseInt(id!)} />
-                      </TabsContent>
-
-                      <TabsContent value="expenses" className="mt-6">
-                        <ExpenseTracker eventId={parseInt(id!)} />
-                      </TabsContent>
-
-                      <TabsContent value="photos" className="mt-6">
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>Photo collection feature coming soon!</p>
-                          <p className="text-sm">Share memories from your event</p>
                         </div>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-white/60">
+                        <p>No updates yet. Be the first to post!</p>
+                      </div>
+                    )}
 
-              {/* Sidebar */}
-              <div className="space-y-6">
+                    {/* Comment Input */}
+                    {user && (
+                      <div className="flex items-center space-x-3 mt-6">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={user.profileImageUrl || undefined} />
+                          <AvatarFallback className="bg-white/20 text-white">
+                            {user.firstName?.[0]}{user.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 relative">
+                          <Input
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="bg-white/10 border border-white/20 pr-12 text-white placeholder:text-white/50"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handlePostComment();
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={handlePostComment}
+                            disabled={!newComment.trim() || postMutation.isPending}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white hover:text-white/80 transition-colors disabled:opacity-50"
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="poster" className="mt-6">
+                    <PosterGallery 
+                      event={event} 
+                      onCustomize={() => setIsPosterCustomizerOpen(true)}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="polls" className="mt-6">
+                    <Polls eventId={parseInt(id!)} />
+                  </TabsContent>
+
+                  <TabsContent value="expenses" className="mt-6">
+                    <ExpenseTracker eventId={parseInt(id!)} />
+                  </TabsContent>
+
+                  <TabsContent value="photos" className="mt-6">
+                    <div className="text-center py-8 text-white/60">
+                      <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Photo collection feature coming soon!</p>
+                      <p className="text-sm">Share memories from your event</p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
                 <GuestList 
                   eventId={parseInt(id!)} 
                   rsvps={event.rsvps} 
@@ -456,7 +511,7 @@ export default function EventDetails() {
                 />
               </div>
             </div>
-          </div> {/* End content background */}
+          </div>
         </main>
 
         <MobileNav />

@@ -80,11 +80,11 @@ export default function PosterGallery({ event, onCustomize, isPreview = false }:
             </div>
 
             <div className="space-y-2">
-              {(posterData?.customTitle || event?.title) && (
-                <h1 className="text-xl font-bold text-white leading-tight drop-shadow-lg break-words">
-                  {posterData?.customTitle || event?.title}
-                </h1>
-              )}
+              {/* Always show a title - fallback to event title or default */}
+              <h1 className="text-xl font-bold text-white leading-tight drop-shadow-lg break-words">
+                {posterData?.customTitle || event?.title || "Your Event Title"}
+              </h1>
+              
               {posterData?.customSubtitle && (
                 <p className="text-sm text-white/90 drop-shadow-md break-words">
                   {posterData.customSubtitle}

@@ -96,10 +96,25 @@ export const eventExpenses = pgTable("event_expenses", {
   paidBy: varchar("paid_by").notNull().references(() => users.id),
   description: text("description").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  splitAmong: jsonb("split_among").notNull(), // Array of user IDs
+  splitType: varchar("split_type").notNull().default("equal"), // 'equal' | 'custom_percentage' | 'custom_amount'
+  splitDetails: jsonb("split_details").notNull(), // Detailed split information
   category: varchar("category"),
-  receipt: text("receipt_url"),
+  receiptUrl: text("receipt_url"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Expense settlements - track who owes who and settlements
+export const expenseSettlements = pgTable("expense_settlements", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  fromUserId: varchar("from_user_id").notNull().references(() => users.id),
+  toUserId: varchar("to_user_id").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description"), // Optional description/note
+  proofImageUrl: text("proof_image_url"), // Optional payment proof
+  settledAt: timestamp("settled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -110,6 +125,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   polls: many(eventPolls),
   votes: many(pollVotes),
   expenses: many(eventExpenses),
+  settlementsFrom: many(expenseSettlements, { relationName: "settlementsFrom" }),
+  settlementsTo: many(expenseSettlements, { relationName: "settlementsTo" }),
 }));
 
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -121,6 +138,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   posts: many(eventPosts),
   polls: many(eventPolls),
   expenses: many(eventExpenses),
+  settlements: many(expenseSettlements),
 }));
 
 export const eventRsvpsRelations = relations(eventRsvps, ({ one }) => ({
@@ -179,6 +197,21 @@ export const eventExpensesRelations = relations(eventExpenses, ({ one }) => ({
   }),
 }));
 
+export const expenseSettlementsRelations = relations(expenseSettlements, ({ one }) => ({
+  event: one(events, {
+    fields: [expenseSettlements.eventId],
+    references: [events.id],
+  }),
+  fromUser: one(users, {
+    fields: [expenseSettlements.fromUserId],
+    references: [users.id],
+  }),
+  toUser: one(users, {
+    fields: [expenseSettlements.toUserId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
@@ -213,6 +246,21 @@ export const insertExpenseSchema = createInsertSchema(eventExpenses).omit({
   amount: z.number().or(z.string()).transform((val) => {
     return typeof val === 'number' ? val.toString() : val;
   }),
+  splitType: z.enum(['equal', 'custom_percentage', 'custom_amount']).default('equal'),
+  splitDetails: z.record(z.object({
+    amount: z.number().optional(),
+    percentage: z.number().optional(),
+  })),
+});
+
+export const insertSettlementSchema = createInsertSchema(expenseSettlements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  amount: z.number().or(z.string()).transform((val) => {
+    return typeof val === 'number' ? val.toString() : val;
+  }),
 });
 
 // Type exports
@@ -229,3 +277,5 @@ export type InsertPoll = z.infer<typeof insertPollSchema>;
 export type PollVote = typeof pollVotes.$inferSelect;
 export type EventExpense = typeof eventExpenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type ExpenseSettlement = typeof expenseSettlements.$inferSelect;
+export type InsertExpenseSettlement = z.infer<typeof insertSettlementSchema>;

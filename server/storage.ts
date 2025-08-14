@@ -6,6 +6,7 @@ import {
   eventPolls,
   pollVotes,
   eventExpenses,
+  expenseSettlements,
   type User,
   type UpsertUser,
   type Event,
@@ -19,6 +20,8 @@ import {
   type PollVote,
   type EventExpense,
   type InsertExpense,
+  type ExpenseSettlement,
+  type InsertExpenseSettlement,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, count, sql } from "drizzle-orm";
@@ -57,6 +60,10 @@ export interface IStorage {
   // Expense operations
   createExpense(expense: InsertExpense): Promise<EventExpense>;
   getEventExpenses(eventId: number): Promise<any[]>;
+
+  // Settlement operations
+  createSettlement(settlement: InsertExpenseSettlement): Promise<ExpenseSettlement>;
+  getEventSettlements(eventId: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -350,6 +357,23 @@ export class DatabaseStorage implements IStorage {
       with: {
         payer: true,
       },
+    });
+  }
+
+  // Settlement operations
+  async createSettlement(settlement: InsertExpenseSettlement): Promise<ExpenseSettlement> {
+    const [newSettlement] = await db.insert(expenseSettlements).values(settlement).returning();
+    return newSettlement;
+  }
+
+  async getEventSettlements(eventId: number): Promise<any[]> {
+    return await db.query.expenseSettlements.findMany({
+      where: eq(expenseSettlements.eventId, eventId),
+      with: {
+        fromUser: true,
+        toUser: true,
+      },
+      orderBy: desc(expenseSettlements.createdAt),
     });
   }
 }
