@@ -139,6 +139,7 @@ export const events = pgTable("events", {
 	hostId: varchar("host_id").notNull(),
 	eventType: varchar("event_type").notNull(),
 	location: text(),
+	mapLink: text("map_link"),
 	datetime: timestamp({ mode: 'string' }).notNull(),
 	imageUrl: text("image_url"),
 	maxGuests: integer("max_guests"),

@@ -40,6 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hostId: userId,
         eventType: req.body.eventType,
         location: req.body.location,
+        mapLink: req.body.mapLink, // Add map link support
         datetime: new Date(req.body.datetime),
         imageUrl: req.body.imageUrl,
         maxGuests: req.body.maxGuests,
@@ -123,7 +124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[DEBUG] Returning event data for ID ${eventId}:`, {
         title: event.title,
         id: event.id,
-        hostId: event.hostId
+        hostId: event.hostId,
+        location: event.location,
+        mapLink: event.mapLink
       });
       res.json(event);
     } catch (error) {

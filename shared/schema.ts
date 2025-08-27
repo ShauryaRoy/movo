@@ -35,6 +35,7 @@ export const events = pgTable("events", {
   hostId: varchar("host_id").notNull().references(() => users.id),
   eventType: varchar("event_type").notNull(), // 'offline' | 'online'
   location: text("location"),
+  mapLink: text("map_link"), // Navigation link for the location
   datetime: timestamp("datetime").notNull(),
   imageUrl: text("image_url"),
   maxGuests: integer("max_guests"),

@@ -15,6 +15,20 @@
       "when": 1753489616081,
       "tag": "0001_nasty_masked_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1755468728789,
+      "tag": "0002_secret_roughhouse",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755469200000,
+      "tag": "0003_add_map_link",
+      "breakpoints": true
     }
   ]
 }

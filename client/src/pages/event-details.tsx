@@ -22,9 +22,13 @@ import {
   Heart,
   Send,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Globe,
+  Lock,
+  Copy,
+  ExternalLink
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
@@ -47,6 +51,7 @@ export default function EventDetails() {
   const [activeTab, setActiveTab] = useState("updates");
   const [newComment, setNewComment] = useState("");
   const [isPosterCustomizerOpen, setIsPosterCustomizerOpen] = useState(false);
+  const [mapLinkCopied, setMapLinkCopied] = useState(false);
 
   const { data: event, isLoading, error } = useQuery<any>({
     queryKey: [`/api/events/${id}`],
@@ -176,6 +181,27 @@ export default function EventDetails() {
     }
   };
 
+  const copyMapLink = async () => {
+    const mapLinkUrl = event.mapLink || event.map_link;
+    if (!mapLinkUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(mapLinkUrl);
+      setMapLinkCopied(true);
+      toast({
+        title: "Map link copied!",
+        description: "The navigation link has been copied to your clipboard.",
+      });
+      setTimeout(() => setMapLinkCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Please copy the link manually.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatEventDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
@@ -198,6 +224,17 @@ export default function EventDetails() {
       return acc;
     }, { going: 0, maybe: 0, not_going: 0 });
   };
+
+  // Moved before early returns to keep hook order stable across renders
+  const dateInfo = useMemo(() => {
+    if (!event?.datetime) return { full: "", dayMonth: "", time: "" };
+    const d = new Date(event.datetime);
+    return {
+      full: d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+      dayMonth: d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
+      time: d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    };
+  }, [event?.datetime]);
 
   if (isLoading) {
     return (
@@ -262,7 +299,7 @@ export default function EventDetails() {
   const userRsvpStatus = getUserRsvpStatus();
   const rsvpCounts = getRsvpCounts();
   const theme = getThemeById(event.themeId || 'quantum-dark');
-
+  
   return (
     <ThemeBackground 
       theme={theme}
@@ -270,127 +307,160 @@ export default function EventDetails() {
     >
       {/* Full page overlay for content readability */}
       <div className="absolute inset-0 bg-black/20" />
-      
       {/* Page content */}
       <div className="relative z-10">
         <Header />
-        
-        {/* Event Header */}
-        <div className="relative">
-          <div className="h-48 md:h-56">
-            {/* Header background overlay for text readability */}
-            <div className="absolute inset-0 bg-black/10" />
-            
-            {/* Event Title and Basic Info */}
-            <div className="absolute inset-0 flex items-center">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                <div className="text-white">
-                  <h1 className="text-3xl md:text-4xl font-bold mb-2 drop-shadow-lg">{event.title}</h1>
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(event.datetime).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-20 md:pb-12 space-y-10">
+          {/* Hero Section */}
+          <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-white/5 backdrop-blur-md p-6 md:p-10">
+            <div className="flex flex-col lg:flex-row gap-10">
+              {/* Poster */}
+              {event.posterData && (
+                <div className="w-full max-w-sm mx-auto lg:mx-0">
+                  <PosterGallery event={event} isPreview={true} onCustomize={() => setIsPosterCustomizerOpen(true)} />
+                </div>
+              )}
+              {/* Title & Meta */}
+              <div className="flex-1 flex flex-col justify-between space-y-6">
+                <div className="space-y-5">
+                  {/* Top Row: Back + Badges */}
+                  <div className="flex flex-wrap items-center gap-3 justify-between">
+                    <Link href="/">
+                      <Button variant="outline" className="text-white border-white/30 bg-white/10 hover:bg-white/20 h-9 px-3 backdrop-blur-sm">
+                        <ArrowLeft className="h-4 w-4 mr-2" /> Back
+                      </Button>
+                    </Link>
+                    <div className="flex flex-wrap gap-3 ml-auto">
+                      <Badge className="bg-white/15 border-white/30 text-white backdrop-blur-sm">
+                        {event.eventType === 'online' ? '🎮 Gaming Event' : '🎉 Party'}
+                      </Badge>
+                      <Badge variant="outline" className="bg-white/10 border-white/30 text-white backdrop-blur-sm">
+                        {event.isPublic ? (<><Globe className="h-3 w-3 mr-1" />Public</>) : (<><Lock className="h-3 w-3 mr-1" />Private</>)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white drop-shadow">{event.title}</h1>
+                  <p className="text-white/80 text-lg">Hosted by {event.hostName || 'Event Host'}</p>
+                  <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-white/80">
+                      <Calendar className="h-4 w-4" /> {dateInfo.full}{dateInfo.time && <span className="ml-1">• {dateInfo.time}</span>}
                     </div>
                     {event.location && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-white/80">
                         <MapPin className="h-4 w-4" />
-                        {event.location}
+                        {(event.mapLink || event.map_link) ? (
+                          <a href={event.mapLink || event.map_link} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline decoration-dotted">
+                            {event.location}
+                          </a>
+                        ) : (
+                          <span>{event.location}</span>
+                        )}
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      {rsvpCounts.going} going
+                    <div className="flex items-center gap-2 text-white/80">
+                      <Users className="h-4 w-4" /> {rsvpCounts.going} going
                     </div>
                   </div>
                 </div>
+                {/* RSVP Actions */}
+                {user && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium uppercase tracking-wide text-white/60">Your RSVP</h3>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        onClick={() => handleRsvp("going")}
+                        disabled={rsvpMutation.isPending}
+                        className={`${userRsvpStatus === "going" ? "bg-green-600 hover:bg-green-700" : "bg-white/10 hover:bg-green-600/20 border border-white/20 hover:border-green-400"} text-white transition-all duration-200`}
+                      >
+                        <Check className="mr-2 h-4 w-4" /> Going
+                      </Button>
+                      <Button
+                        onClick={() => handleRsvp("maybe")}
+                        disabled={rsvpMutation.isPending}
+                        className={`${userRsvpStatus === "maybe" ? "bg-yellow-600 hover:bg-yellow-700" : "bg-white/10 hover:bg-yellow-600/20 border border-white/20 hover:border-yellow-400"} text-white transition-all duration-200`}
+                      >
+                        <HelpCircle className="mr-2 h-4 w-4" /> Maybe
+                      </Button>
+                      <Button
+                        onClick={() => handleRsvp("not_going")}
+                        disabled={rsvpMutation.isPending}
+                        className={`${userRsvpStatus === "not_going" ? "bg-red-600 hover:bg-red-700" : "bg-white/10 hover:bg-red-600/20 border border-white/20 hover:border-red-400"} text-white transition-all duration-200`}
+                      >
+                        <X className="mr-2 h-4 w-4" /> Can't Go
+                      </Button>
+                      <Link href={`/events/${id}/share`}>
+                        <Button variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm">
+                          <Share className="mr-2 h-4 w-4" /> Share
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-        
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
-          {/* Back Button */}
-          <div className="mb-6">
-            <Link href="/">
-              <Button variant="ghost" className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Events
-              </Button>
-            </Link>
-          </div>
 
+          {/* Map Link Section */}
+          {event.location && (
+            <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-white/5 backdrop-blur-md p-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Location & Navigation
+                </h3>
+                <div className="space-y-3">
+                  <p className="text-white/80">
+                    <span className="font-medium">{event.location}</span>
+                  </p>
+                  {(event.mapLink || event.map_link) ? (
+                    <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white/60 mb-1">Navigation Link</p>
+                        <p className="text-sm text-white font-mono truncate">{event.mapLink || event.map_link}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={copyMapLink}
+                          variant="outline"
+                          size="sm"
+                          className="border-white/30 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+                        >
+                          {mapLinkCopied ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <a
+                          href={event.mapLink || event.map_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-400/50 text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 backdrop-blur-sm"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Open
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-center">
+                      <p className="text-white/60 text-sm">No navigation link available for this location</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Grid */}
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Main Content */}
+            {/* Left Column */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Event Poster Section - Larger Display */}
-              {event.posterData && (
-                <div className="flex justify-center">
-                  <div className="w-full max-w-lg">
-                    <PosterGallery 
-                      event={event} 
-                      isPreview={true}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* RSVP Actions - Full Width */}
-              {user && (
-                <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Are you going?</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Button
-                      onClick={() => handleRsvp("going")}
-                      disabled={rsvpMutation.isPending}
-                      className={`${
-                        userRsvpStatus === "going"
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "bg-white/10 border border-white/20 text-white hover:bg-green-600/20 hover:border-green-500"
-                      } transition-all duration-200`}
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Going
-                    </Button>
-                    <Button
-                      onClick={() => handleRsvp("maybe")}
-                      disabled={rsvpMutation.isPending}
-                      className={`${
-                        userRsvpStatus === "maybe"
-                          ? "bg-yellow-600 hover:bg-yellow-700 text-white"
-                          : "bg-white/10 border border-white/20 text-white hover:bg-yellow-600/20 hover:border-yellow-500"
-                      } transition-all duration-200`}
-                    >
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      Maybe
-                    </Button>
-                    <Button
-                      onClick={() => handleRsvp("not_going")}
-                      disabled={rsvpMutation.isPending}
-                      className={`${
-                        userRsvpStatus === "not_going"
-                          ? "bg-red-600 hover:bg-red-700 text-white"
-                          : "bg-white/10 border border-white/20 text-white hover:bg-red-600/20 hover:border-red-500"
-                      } transition-all duration-200`}
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Can't Go
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-white/40 transition-all duration-200"
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Bring Guest
-                    </Button>
-                  </div>
-                </div>
-              )}
-
               {/* Event Tabs - Improved Styling */}
               <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -500,7 +570,6 @@ export default function EventDetails() {
                 </Tabs>
               </div>
             </div>
-
             {/* Sidebar */}
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
@@ -513,9 +582,7 @@ export default function EventDetails() {
             </div>
           </div>
         </main>
-
         <MobileNav />
-        
         {/* Poster Customizer */}
         <PosterCustomizer 
           open={isPosterCustomizerOpen}
@@ -523,7 +590,7 @@ export default function EventDetails() {
           eventData={event}
           onSave={handleSavePoster}
         />
-      </div> {/* End relative z-10 */}
+      </div>
     </ThemeBackground>
   );
 }

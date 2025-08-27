@@ -1,39 +1,38 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { 
-  Calendar, 
-  Users, 
-  MapPin, 
-  Clock, 
-  Share2, 
-  Heart,
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Calendar,
+  Users,
+  MapPin,
+  Share2,
   Globe,
   Lock,
   Copy,
   Check,
-  ChevronRight,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from "lucide-react";
 import PosterGallery from "@/components/poster-gallery";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 import { type Event } from "@shared/schema";
 import { getThemeById } from "@shared/themes";
 import { ThemeBackground } from "@/components/theme-background";
 
 type EventWithDetails = Event & {
-  rsvpCount: number;
-  goingCount: number;
-  maybeCount: number;
-  notGoingCount: number;
+  rsvpCount?: number;
+  goingCount?: number;
+  maybeCount?: number;
+  notGoingCount?: number;
   userRsvpStatus?: string;
   hostName?: string;
   themeId?: string;
+  rsvps?: Array<{ userId: number; status: string }>;
 };
 
 export default function EventShare() {
@@ -41,405 +40,247 @@ export default function EventShare() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [rsvpStatus, setRsvpStatus] = useState<string>("");
-  const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
+  const [copied, setCopied] = useState(false);
 
-  const { data: event, isLoading } = useQuery<EventWithDetails>({
-    queryKey: [`/api/events/${id}/share`],
+  const { data: event, isLoading, error } = useQuery<EventWithDetails | any>({
+    queryKey: ["/api/events", id, "share"],
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load event");
+      return res.json();
+    },
     enabled: !!id,
   });
 
   const rsvpMutation = useMutation({
-    mutationFn: async ({ status }: { status: string }) => {
-      const response = await fetch(`/api/events/${id}/rsvp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error("Failed to RSVP");
-      return response.json();
+    mutationFn: async (status: string) => {
+      const res = await apiRequest("POST", `/api/events/${id}/rsvp`, { status });
+      if (!res.ok) throw new Error("Failed to update RSVP");
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/events/${id}/share`] });
-      toast({
-        title: "Success!",
-        description: "RSVP updated successfully!",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/events", id, "share"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${id}`] });
+      toast({ title: "RSVP updated", description: "Thanks for responding!" });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update RSVP",
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) => {
+      toast({ title: "Error", description: e.message || "Could not RSVP", variant: "destructive" });
+    }
   });
+
+  const currentUserRsvp = useMemo(() => {
+    if (!user || !event?.rsvps) return null;
+  const userIdNum = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
+  return event.rsvps.find((r: { userId: number; status: string }) => r.userId === userIdNum)?.status || null;
+  }, [user, event]);
+
+  const dateInfo = useMemo(() => {
+    if (!event?.datetime) return { full: "", dayMonth: "", time: "" };
+    const d = new Date(event.datetime);
+    return {
+      full: d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+      dayMonth: d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
+      time: d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    };
+  }, [event?.datetime]);
+
+  const theme = getThemeById(event?.themeId || 'quantum-dark');
+
+  const copyShareLink = () => {
+    try {
+      const link = `${window.location.origin}/events/${id}/share`;
+      navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Link copied" });
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy manually", variant: "destructive" });
+    }
+  };
 
   const handleRSVP = (status: string) => {
     if (!user) {
-      // Redirect to home with a message to sign in
-      setLocation(`/?auth=required&redirect=/events/${id}/share`);
+      toast({ title: "Sign in required", description: "Log in to RSVP", variant: "destructive" });
       return;
     }
-    setRsvpStatus(status);
-    rsvpMutation.mutate({ status });
-  };
-
-  const copyShareLink = async () => {
-    const shareUrl = `${window.location.origin}/events/${id}/share`;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast({
-        title: "Copied!",
-        description: "Share link copied to clipboard",
-      });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to copy link",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const formatEventDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return {
-      dayMonth: date.toLocaleDateString("en-US", { 
-        weekday: "short", 
-        month: "short", 
-        day: "numeric" 
-      }),
-      time: date.toLocaleTimeString("en-US", { 
-        hour: "numeric", 
-        minute: "2-digit",
-        hour12: true 
-      }),
-      full: date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true
-      })
-    };
+    rsvpMutation.mutate(status);
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
   }
-
-  if (!event) {
-    return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Event not found</h2>
-          <p className="text-muted-foreground">This event doesn't exist or is no longer available.</p>
-          <Button 
-            className="mt-4 gaming-button"
-            onClick={() => setLocation('/')}
-          >
-            Go Home
-          </Button>
-        </div>
-      </div>
-    );
+  if (error || !event) {
+    return <div className="min-h-screen flex items-center justify-center text-white">Event not found.</div>;
   }
-
-  const dateInfo = formatEventDate(event.datetime.toString());
-  const currentUserRsvp = event.userRsvpStatus;
-  const theme = getThemeById(event.themeId || 'quantum-dark');
 
   return (
-    <ThemeBackground 
-      theme={theme}
-      className="min-h-screen"
-    >
-      {/* Full page overlay for content readability */}
-      <div className="absolute inset-0 " />
-      
-      {/* Page content */}
+    <ThemeBackground theme={theme} className="min-h-screen">
       <div className="relative z-10">
-        {/* Event Poster/Header */}
-        <div className="relative">
-          <div className="h-64 md:h-80">
-            {/* Header background overlay for text readability */}
-            <div className="absolute inset-0 bg-black/10" />
-            
-            {/* Event Type Badge */}
-            <div className="absolute top-6 left-6">
-              <Badge
-                variant="secondary"
-                className="bg-black/60 border-white/30 text-white backdrop-blur-sm"
-              >
-                {event.eventType === "online" ? "🎮 Gaming Event" : "🎉 Party"}
-              </Badge>
-            </div>
-
-            {/* Privacy Badge */}
-            <div className="absolute top-6 right-6">
-              <Badge 
-                variant="outline" 
-                className="bg-black/60 border-white/30 text-white backdrop-blur-sm"
-              >
-                {event.isPublic ? (
-                  <>
-                    <Globe className="h-3 w-3 mr-1" />
-                    Public
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-3 w-3 mr-1" />
-                    Private
-                  </>
-                )}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Share Button */}
-          <div className="absolute bottom-6 right-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyShareLink}
-              className="bg-black/60 border-white/30 text-white hover:bg-black/80 backdrop-blur-sm"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </>
-              )}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+          {/* Back */}
+          <div>
+            <Button variant="ghost" onClick={() => setLocation(`/events/${id}`)} className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Event
             </Button>
           </div>
 
-          {/* Event Title Overlay */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
-              {event.title}
-            </h1>
-            <p className="text-white/90 text-lg drop-shadow-lg">
-              Hosted by {event.hostName || "Event Host"}
-            </p>
-          </div>
-        </div>
-
-        {/* Event Details */}
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          {/* Content background for readability with better transparency */}
-          <div className="bg-white/20 dark:bg-gray-900/20 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-6">
-            <div className="grid md:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Event Poster Section */}
-            {event.posterData && (
-              <Card className="glass-effect overflow-hidden">
-                <div className="aspect-[4/5] max-w-md mx-auto">
-                  <PosterGallery 
-                    event={event} 
-                    isPreview={true}
-                  />
-                </div>
-              </Card>
-            )}
-            
-            {/* RSVP Section */}
-            <Card className="glass-effect" style={{ borderColor: `${theme.accent}40` }}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2" style={{ color: theme.accent }} />
-                  Are you going?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3">
-                  <Button
-                    variant={currentUserRsvp === "going" ? "default" : "outline"}
-                    className={`w-full ${
-                      currentUserRsvp === "going" 
-                        ? "bg-green-600 hover:bg-green-700" 
-                        : "border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
-                    }`}
-                    onClick={() => handleRSVP("going")}
-                    disabled={rsvpMutation.isPending}
-                  >
-                    ✅ Going
-                  </Button>
-                  <Button
-                    variant={currentUserRsvp === "maybe" ? "default" : "outline"}
-                    className={`w-full ${
-                      currentUserRsvp === "maybe" 
-                        ? "bg-yellow-600 hover:bg-yellow-700" 
-                        : "border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white"
-                    }`}
-                    onClick={() => handleRSVP("maybe")}
-                    disabled={rsvpMutation.isPending}
-                  >
-                    🤔 Maybe
-                  </Button>
-                  <Button
-                    variant={currentUserRsvp === "not_going" ? "default" : "outline"}
-                    className={`w-full ${
-                      currentUserRsvp === "not_going" 
-                        ? "bg-red-600 hover:bg-red-700" 
-                        : "border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
-                    }`}
-                    onClick={() => handleRSVP("not_going")}
-                    disabled={rsvpMutation.isPending}
-                  >
-                    ❌ Can't go
-                  </Button>
-                </div>
-
-                {!user && (
-                  <p className="text-sm text-muted-foreground mt-3 text-center">
-                    Sign in to RSVP and get updates about this event
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Event Description */}
-            <Card className="glass-effect">
-              <CardHeader>
-                <CardTitle>About this event</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {event.description || "No description provided for this event."}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Attendees */}
-            <Card className="glass-effect">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Responses ({(event.goingCount || 0) + (event.maybeCount || 0) + (event.notGoingCount || 0)})</span>
-                  <ChevronRight className="h-4 w-4" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-green-400">
-                      {event.goingCount || 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Going</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-400">
-                      {event.maybeCount || 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Maybe</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-red-400">
-                      {event.notGoingCount || 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Can't Go</div>
-                  </div>
-                </div>
-                {event.maxGuests && (
-                  <div className="mt-4 text-center text-sm text-muted-foreground">
-                    Capacity: {event.maxGuests} max
+          {/* Hero */}
+            <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-white/5 backdrop-blur-md p-6 md:p-10">
+              <div className="flex flex-col lg:flex-row gap-10">
+                {/* Poster */}
+                {event.posterData && (
+                  <div className="w-full max-w-sm mx-auto lg:mx-0">
+                    <PosterGallery event={event} isPreview={true} />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Event Details Card */}
-            <Card className="glass-effect sticky top-8">
-              <CardHeader>
-                <CardTitle>Event Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Date & Time */}
-                <div className="flex items-start space-x-3">
-                  <Calendar className="h-5 w-5 mt-0.5" style={{ color: theme.accent }} />
-                  <div>
-                    <div className="font-medium">{dateInfo.dayMonth}</div>
-                    <div className="text-sm text-muted-foreground">{dateInfo.time}</div>
+                {/* Title & Meta */}
+                <div className="flex-1 flex flex-col justify-between space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-3">
+                      <Badge className="bg-white/15 border-white/30 text-white backdrop-blur-sm">
+                        {event.eventType === 'online' ? '🎮 Gaming Event' : '🎉 Party'}
+                      </Badge>
+                      <Badge variant="outline" className="bg-white/10 border-white/30 text-white backdrop-blur-sm">
+                        {event.isPublic ? (<><Globe className="h-3 w-3 mr-1" />Public</>) : (<><Lock className="h-3 w-3 mr-1" />Private</>)}
+                      </Badge>
+                    </div>
+                    <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white drop-shadow">
+                      {event.title}
+                    </h1>
+                    <p className="text-white/80 text-lg">Hosted by {event.hostName || 'Event Host'}</p>
+                    <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center gap-2 text-white/80">
+                        <Calendar className="h-4 w-4" /> {dateInfo.full}
+                      </div>
+                      {event.location && (
+                        <div className="flex items-center gap-2 text-white/80">
+                          <MapPin className="h-4 w-4" />
+                          { (event as any).mapLink ? (
+                            <a href={(event as any).mapLink} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline decoration-dotted">
+                              {event.location}
+                            </a>
+                          ) : event.location }
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Share Box */}
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white font-medium flex items-center gap-2"><Share2 className="h-4 w-4" /> Share this event</span>
+                      <Badge className="bg-white/15 text-white">Live</Badge>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Input
+                        readOnly
+                        value={typeof window !== 'undefined' ? `${window.location.origin}/events/${id}/share` : ''}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-white/40"
+                      />
+                      <Button onClick={copyShareLink} variant="outline" className="border-white/30 text-white hover:bg-white/20">
+                        {copied ? (<><Check className="h-4 w-4 mr-2" />Copied</>) : (<><Copy className="h-4 w-4 mr-2" />Copy</>)}
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <Separator />
+          <div className="grid lg:grid-cols-3 gap-10">
+            {/* Left / Main Column */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* RSVP Section */}
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><Sparkles className="h-5 w-5" /> Are you going?</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <Button
+                    onClick={() => handleRSVP('going')}
+                    disabled={rsvpMutation.isPending}
+                    className={`w-full ${currentUserRsvp === 'going' ? 'bg-green-600 hover:bg-green-700' : 'bg-white/10 border border-white/20 text-white hover:bg-green-600/20 hover:border-green-500'}`}
+                  >✅ Going</Button>
+                  <Button
+                    onClick={() => handleRSVP('maybe')}
+                    disabled={rsvpMutation.isPending}
+                    className={`w-full ${currentUserRsvp === 'maybe' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-white/10 border border-white/20 text-white hover:bg-yellow-600/20 hover:border-yellow-500'}`}
+                  >🤔 Maybe</Button>
+                  <Button
+                    onClick={() => handleRSVP('not_going')}
+                    disabled={rsvpMutation.isPending}
+                    className={`w-full ${currentUserRsvp === 'not_going' ? 'bg-red-600 hover:bg-red-700' : 'bg-white/10 border border-white/20 text-white hover:bg-red-600/20 hover:border-red-500'}`}
+                  >❌ Can't go</Button>
+                </div>
+                {!user && <p className="text-sm text-white/60 mt-3">Sign in to RSVP and get updates.</p>}
+              </div>
 
-                {/* Location */}
-                {event.location && (
-                  <>
-                    <div className="flex items-start space-x-3">
-                      <MapPin className="h-5 w-5 mt-0.5" style={{ color: theme.accent }} />
+              {/* About */}
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+                <h3 className="text-lg font-semibold text-white mb-3">About this event</h3>
+                <p className="text-white/70 leading-relaxed">{event.description || 'No description provided for this event.'}</p>
+              </div>
+
+              {/* Attendee Stats */}
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+                <h3 className="text-lg font-semibold text-white mb-5">Responses</h3>
+                <div className="grid grid-cols-3 gap-6 text-center">
+                  <div>
+                    <div className="text-3xl font-bold text-green-400">{event.goingCount || 0}</div>
+                    <div className="text-xs uppercase tracking-wide text-white/60 mt-1">Going</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-yellow-400">{event.maybeCount || 0}</div>
+                    <div className="text-xs uppercase tracking-wide text-white/60 mt-1">Maybe</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-red-400">{event.notGoingCount || 0}</div>
+                    <div className="text-xs uppercase tracking-wide text-white/60 mt-1">Can't Go</div>
+                  </div>
+                </div>
+                {event.maxGuests && <div className="mt-6 text-center text-sm text-white/60">Capacity: {event.maxGuests} max</div>}
+              </div>
+            </div>
+
+            {/* Right / Sidebar */}
+            <div className="space-y-8">
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 space-y-6 sticky top-6">
+                <h3 className="text-lg font-semibold text-white">Event Details</h3>
+                <div className="space-y-5">
+                  <div className="flex items-start gap-3 text-white/80">
+                    <Calendar className="h-5 w-5 mt-0.5" />
+                    <div>
+                      <div className="font-medium">{dateInfo.dayMonth}</div>
+                      <div className="text-sm text-white/60">{dateInfo.time}</div>
+                    </div>
+                  </div>
+                  {event.location && (
+                    <div className="flex items-start gap-3 text-white/80">
+                      <MapPin className="h-5 w-5 mt-0.5" />
                       <div>
                         <div className="font-medium">Location</div>
-                        <div className="text-sm text-muted-foreground">{event.location}</div>
+                        <div className="text-sm text-white/60">
+                          {(event as any).mapLink ? (
+                            <a href={(event as any).mapLink} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline decoration-dotted">{event.location}</a>
+                          ) : event.location}
+                        </div>
                       </div>
                     </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Capacity */}
-                <div className="flex items-start space-x-3">
-                  <Users className="h-5 w-5 mt-0.5" style={{ color: theme.accent }} />
-                  <div>
-                    <div className="font-medium">Capacity</div>
-                    <div className="text-sm text-muted-foreground">
-                      {event.maxGuests ? `Up to ${event.maxGuests} people` : "Unlimited"}
+                  )}
+                  <div className="flex items-start gap-3 text-white/80">
+                    <Users className="h-5 w-5 mt-0.5" />
+                    <div>
+                      <div className="font-medium">Capacity</div>
+                      <div className="text-sm text-white/60">{event.maxGuests ? `Up to ${event.maxGuests} people` : 'Unlimited'}</div>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="glass-effect">
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setLocation(`/events/${id}`)}
-                  >
-                    View Full Event Page
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={copyShareLink}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Share Link
-                  </Button>
+                <div className="pt-2 space-y-3">
+                  <Button variant="outline" className="w-full border-white/30 text-white hover:bg-white/15" onClick={() => setLocation(`/events/${id}`)}>View Full Event Page</Button>
+                  <Button variant="outline" className="w-full border-white/30 text-white hover:bg-white/15" onClick={copyShareLink}>{copied ? (<><Check className='h-4 w-4 mr-2'/>Copied</>) : (<><Copy className='h-4 w-4 mr-2'/>Copy Share Link</>)}</Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
-        </div>
-        
-        </div> {/* End content background */}
-      </div> {/* End max-w-4xl container */}
-      
-      </div> {/* End relative z-10 */}
+        </main>
+      </div>
     </ThemeBackground>
   );
 }
