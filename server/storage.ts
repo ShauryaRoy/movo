@@ -30,6 +30,9 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  getUserProfile(userId: string): Promise<any>;
+  updateUserProfile(userId: string, data: any): Promise<any>;
+  getUserStats(userId: string): Promise<any>;
   
   // Event operations
   createEvent(event: InsertEvent): Promise<Event>;
@@ -125,6 +128,98 @@ export class DatabaseStorage implements IStorage {
       console.error('Error upserting user:', error);
       throw error;
     }
+  }
+
+  async getUserProfile(userId: string): Promise<any> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Get user stats
+    const stats = await this.getUserStats(userId);
+    
+    return {
+      ...user,
+      stats
+    };
+  }
+
+  async updateUserProfile(userId: string, data: any): Promise<any> {
+    const updateData = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      bio: data.bio,
+      location: data.location,
+      updatedAt: new Date()
+    };
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updatedUser;
+  }
+
+  async getUserStats(userId: string): Promise<any> {
+    // Count hosted events
+    const hostedEventsResult = await db
+      .select({ count: count() })
+      .from(events)
+      .where(eq(events.hostId, userId));
+    
+    // Count attended events (RSVPs with 'going' status, excluding hosted events)
+    const attendedEventsResult = await db
+      .select({ count: count() })
+      .from(eventRsvps)
+      .innerJoin(events, eq(eventRsvps.eventId, events.id))
+      .where(
+        and(
+          eq(eventRsvps.userId, userId),
+          eq(eventRsvps.status, 'going'),
+          sql`${events.hostId} != ${userId}` // Exclude events they're hosting
+        )
+      );
+
+    // Count total RSVPs
+    const totalRsvpsResult = await db
+      .select({ count: count() })
+      .from(eventRsvps)
+      .where(eq(eventRsvps.userId, userId));
+
+    // Count upcoming events (either hosting or attending)
+    const now = new Date();
+    const upcomingHostedResult = await db
+      .select({ count: count() })
+      .from(events)
+      .where(
+        and(
+          eq(events.hostId, userId),
+          sql`${events.datetime} > ${now}`
+        )
+      );
+    
+    const upcomingAttendingResult = await db
+      .select({ count: count() })
+      .from(eventRsvps)
+      .innerJoin(events, eq(eventRsvps.eventId, events.id))
+      .where(
+        and(
+          eq(eventRsvps.userId, userId),
+          eq(eventRsvps.status, 'going'),
+          sql`${events.hostId} != ${userId}`,
+          sql`${events.datetime} > ${now}`
+        )
+      );
+
+    return {
+      eventsHosted: hostedEventsResult[0]?.count || 0,
+      eventsAttended: attendedEventsResult[0]?.count || 0,
+      totalRsvps: totalRsvpsResult[0]?.count || 0,
+      upcomingEvents: (upcomingHostedResult[0]?.count || 0) + (upcomingAttendingResult[0]?.count || 0)
+    };
   }
 
   // Event operations

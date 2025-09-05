@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, Bell, Settings, LogOut, Search } from "lucide-react";
+import { Calendar, Bell, Settings, LogOut, Search, User } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Header() {
@@ -90,6 +90,10 @@ export default function Header() {
                   </div>
                 </div>
                 <DropdownMenuSeparator className="bg-dark-border" />
+                <DropdownMenuItem className="hover:bg-dark-card" onClick={() => window.location.href = '/profile'}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem className="hover:bg-dark-card">
                   <Settings className="mr-2 h-4 w-4" />
                   Settings

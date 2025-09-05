@@ -97,15 +97,15 @@ export default function CreateEventPage() {
       <div className="absolute inset-0 bg-black/25" />
       <div className="relative z-10 min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-10">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-28 pb-16">
           <div className="max-w-7xl mx-auto space-y-10">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow">Create Event</h1>
-                <p className="text-white/70 text-sm">Set up details, customize a poster, and share it.</p>
+                <p className="text-white/70 text-sm mt-1">Set up details, customize a poster, and share it.</p>
               </div>
               <Link href="/">
-                <Button variant="outline" className="border-white/30 text-white hover:bg-white/15"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                <Button variant="outline" className="border-white/30 text-white hover:bg-white/15 self-start sm:self-center"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
               </Link>
             </div>
 
@@ -140,18 +140,18 @@ export default function CreateEventPage() {
                           </Select>
                           {errors.eventType && <p className="text-sm text-red-300">{errors.eventType.message}</p>}
                         </div>
-                        <div className="grid md:grid-cols-2 gap-5">
-                          <div className="space-y-2">
-                            <Label htmlFor="datetime" className="text-white">Date & Time</Label>
-                            <Input id="datetime" type="datetime-local" min={new Date().toISOString().slice(0, 16)} {...register('datetime')} className="bg-white/10 border-white/20 text-white focus:bg-white/20" />
-                            {errors.datetime && <p className="text-sm text-red-300">{errors.datetime.message}</p>}
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="maxGuests" className="text-white">Max Guests</Label>
-                            <Input id="maxGuests" type="number" {...register('maxGuests', { valueAsNumber: true })} min={1} className="bg-white/10 border-white/20 text-white focus:bg-white/20" />
-                            {errors.maxGuests && <p className="text-sm text-red-300">{errors.maxGuests.message}</p>}
-                          </div>
+                        <div className="grid sm:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <Label htmlFor="datetime" className="text-white">Date & Time</Label>
+                          <Input id="datetime" type="datetime-local" min={new Date().toISOString().slice(0, 16)} {...register('datetime')} className="bg-white/10 border-white/20 text-white focus:bg-white/20" />
+                          {errors.datetime && <p className="text-sm text-red-300">{errors.datetime.message}</p>}
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="maxGuests" className="text-white">Max Guests</Label>
+                          <Input id="maxGuests" type="number" {...register('maxGuests', { valueAsNumber: true })} min={1} className="bg-white/10 border-white/20 text-white focus:bg-white/20" />
+                          {errors.maxGuests && <p className="text-sm text-red-300">{errors.maxGuests.message}</p>}
+                        </div>
+                      </div>
                       </div>
                     </section>
 

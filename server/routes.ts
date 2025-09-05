@@ -26,6 +26,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(req.user);
   });
 
+  // Profile routes
+  app.get('/api/profile', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.put('/api/profile', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const { firstName, lastName, bio, location } = req.body;
+      
+      const updatedProfile = await storage.updateUserProfile(userId, {
+        firstName,
+        lastName,
+        bio,
+        location
+      });
+      
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.get('/api/profile/stats', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const stats = await storage.getUserStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get('/api/profile/events', async (req: any, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const events = await storage.getUserEvents(userId);
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching user events:', error);
+      res.status(500).json({ message: "Failed to fetch user events" });
+    }
+  });
+
   // Event routes
   app.post('/api/events', async (req: any, res) => {
     if (!req.isAuthenticated?.() || !req.user) {
